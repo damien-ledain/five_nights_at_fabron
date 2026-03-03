@@ -1,9 +1,11 @@
 package fr.univ.fabron.fnaf_fabron.auth;
 
+import java.util.Date;
+
+import org.springframework.stereotype.Component;
+
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
-import org.springframework.stereotype.Component;
-import java.util.Date;
 
 @Component
 public class JwtUtil {
@@ -18,5 +20,10 @@ public class JwtUtil {
                 .withIssuedAt(new Date())
                 .withExpiresAt(new Date(System.currentTimeMillis() + 86400000)) // Expire dans 1 jour
                 .sign(algorithm);
+    }
+
+    // Méthode à ajouter dans JwtUtil.java
+    public String getUsername(String token) {
+        return JWT.require(algorithm).build().verify(token).getSubject();
     }
 }

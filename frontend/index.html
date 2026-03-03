@@ -9,7 +9,7 @@
 </head>
 <body>
 
-    <div class="camera-effects">
+    <div class="camera-effects hidden" id="camera-effects">
         <div class="static-noise"></div>
         <div class="scanlines"></div>
         <div class="glitch-line"></div>
@@ -18,14 +18,13 @@
 
     <main id="title-screen">
         <section class="menu-section">
-            <h1 class="game-title">
-                Five Nights<br>
-                at Fabron
-            </h1>
-
+            <h1 class="game-title">Five Nights<br>at Fabron</h1>
             <nav class="main-menu">
                 <button id="btn-show-login" class="menu-btn">Connexion / Inscription</button>
-                <button id="btn-new-game" class="menu-btn hidden">New Game</button>
+                <button id="btn-new-game" class="menu-btn hidden">
+                    <span id="btn-new-game-text">New Game</span><br>
+                    <span id="btn-new-game-sub" class="menu-sub-text"></span>
+                </button>
                 <button id="btn-leaderboard" class="menu-btn">Leaderboard</button>
             </nav>
 
@@ -50,6 +49,66 @@
             <img src="assets/redbear.png" alt="Redbear" class="layer animatronic" id="animatronic-2">
             <img src="assets/bluebear.png" alt="Bluebear" class="layer animatronic" id="animatronic-1">
         </section>
+    </main>
+
+    <main id="game-screen" class="hidden">
+        <button id="btn-temp-die" class="dev-kill-btn">[DEV] Simuler Jumpscare</button>
+
+        <img id="main-view-img" src="img/office/desk/desk_open.png" alt="Bureau" class="office-bg">
+        
+        <div class="hud-top-right">
+            <div class="hud-time"><span id="in-game-hour">12</span> AM</div>
+            <div class="hud-night">Night <span id="in-game-night">1</span></div>
+        </div>
+
+        <div class="bottom-controls" id="office-controls">
+            <button id="btn-window" class="control-btn btn-white">Fenêtre</button>
+            <button id="btn-camera" class="control-btn btn-red">Caméras</button>
+        </div>
+    </main>
+
+    <main id="camera-system" class="hidden">
+        <img id="cam-feed-img" src="" alt="Camera Feed" class="office-bg">
+        
+        <div id="minimap">
+            <h3>PLAN DE L'IUT</h3>
+            <div class="map-grid">
+                <button class="cam-btn" data-cam="ext_01" id="pos-ext1">EXT 1</button>
+                <button class="cam-btn" data-cam="int_01" id="pos-int1">INT 1</button>
+                <button class="cam-btn" data-cam="int_02" id="pos-int2">INT 2</button>
+                <button class="cam-btn" data-cam="esc_01" id="pos-esc1">ESC 1</button>
+                <button class="cam-btn" data-cam="int_03" id="pos-int3">INT 3</button>
+                <button class="cam-btn" data-cam="esc_02" id="pos-esc2">ESC 2</button>
+                <button class="cam-btn" data-cam="int_04" id="pos-int4">INT 4</button>
+                <button class="cam-btn" data-cam="esc_03" id="pos-esc3">ESC 3</button>
+                <button class="cam-btn" data-cam="int_05" id="pos-int5">INT 5</button>
+                <button class="cam-btn" data-cam="ext_02" id="pos-ext2">EXT 2</button>
+                <button class="cam-btn" data-cam="ext_03" id="pos-ext3">EXT 3</button>
+            </div>
+        </div>
+
+        <div class="bottom-controls" style="z-index: 75;">
+            <button id="btn-close-camera" class="control-btn btn-white" style="border-color: #aaa; color: #aaa;">Fermer Caméras</button>
+        </div>
+    </main>
+
+    <main id="game-over-screen" class="hidden fullscreen-overlay">
+        <h1 class="game-over-text">GAME OVER</h1>
+        <button id="btn-return-menu-go" class="menu-btn">Retourner au menu</button>
+    </main>
+
+    <main id="victory-screen" class="hidden fullscreen-overlay">
+        <div class="victory-clock">
+            <div class="time-container">
+                <div class="hours-roller-container">
+                    <div class="hours-roller" id="hours-roller">
+                        <div class="hour">5</div>
+                        <div class="hour">6</div>
+                    </div>
+                </div>
+                <div class="am">AM</div>
+            </div>
+        </div>
     </main>
 
     <div id="auth-modal" class="modal hidden">

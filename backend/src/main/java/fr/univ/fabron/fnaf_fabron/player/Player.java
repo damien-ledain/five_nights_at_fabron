@@ -1,6 +1,11 @@
 package fr.univ.fabron.fnaf_fabron.player;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "players")
@@ -16,6 +21,10 @@ public class Player {
     @Column(nullable = false)
     private String password;
 
+    // NOUVEAU : Sauvegarde de la série (streak) de survie en cours
+    @Column(nullable = false)
+    private int currentNight = 1;
+
     public Player() {}
 
     public Long getId() { return id; }
@@ -24,4 +33,6 @@ public class Player {
     public void setUsername(String username) { this.username = username; }
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
+    public int getCurrentNight() { return currentNight; }
+    public void setCurrentNight(int currentNight) { this.currentNight = currentNight; }
 }

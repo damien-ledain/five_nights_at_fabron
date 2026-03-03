@@ -18,7 +18,8 @@ public class SecurityConfig {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/leaderboard", "/api/auth/**").permitAll() // Autorise l'accès libre à l'inscription/connexion
+                // Dans SecurityConfig.java, modifie cette ligne :
+                .requestMatchers("/api/leaderboard", "/api/auth/**", "/api/game/**").permitAll()
                 .anyRequest().authenticated()
             );
         return http.build();
