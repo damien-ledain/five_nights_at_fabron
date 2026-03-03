@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Five Nights at Fabron</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="camera-effects">
+        <div class="static-noise"></div>
+        <div class="scanlines"></div>
+        <div class="glitch-line"></div>
+        <div class="vignette"></div>
+    </div>
+
+    <main id="title-screen">
+        <section class="menu-section">
+            <h1 class="game-title">
+                Five Nights<br>
+                at Fabron
+            </h1>
+
+            <nav class="main-menu">
+                <button id="btn-show-login" class="menu-btn">Connexion / Inscription</button>
+                <button id="btn-new-game" class="menu-btn hidden">New Game</button>
+                <button id="btn-leaderboard" class="menu-btn">Leaderboard</button>
+            </nav>
+
+            <div class="player-stats hidden" id="player-stats-container">
+                <p>Welcome back, <span id="player-name-display"></span>.</p>
+                <p>Max Night: <span id="max-night-display">--</span></p>
+                <p>Best Score: <span id="best-score-display">--</span></p>
+                <button id="btn-logout" class="small-btn">Déconnexion</button>
+            </div>
+
+            <div class="version-info">
+                <p>v 1.0.0</p>
+                <p>&copy;2026 Projet Universitaire</p>
+            </div>
+        </section>
+
+        <section class="characters-section">
+            <img src="assets/banner_crous.png" alt="Banderole Crous" class="layer background-banner" id="banner-crous">
+            <img src="assets/goldenfabron.png" alt="Goldenfabron" class="layer animatronic" id="animatronic-5">
+            <img src="assets/oneeyed.png" alt="Oneeyed" class="layer animatronic" id="animatronic-4">
+            <img src="assets/burncap.png" alt="Burncap" class="layer animatronic" id="animatronic-3">
+            <img src="assets/redbear.png" alt="Redbear" class="layer animatronic" id="animatronic-2">
+            <img src="assets/bluebear.png" alt="Bluebear" class="layer animatronic" id="animatronic-1">
+        </section>
+    </main>
+
+    <div id="auth-modal" class="modal hidden">
+        <div class="modal-content auth-content">
+            <button id="btn-close-auth" class="close-btn">X</button>
+            <h2>IDENTIFICATION</h2>
+            <div class="auth-form">
+                <input type="text" id="auth-username" placeholder="Nom du Gardien" autocomplete="off">
+                <input type="password" id="auth-password" placeholder="Mot de passe">
+                <div class="auth-buttons">
+                    <button id="btn-submit-login" class="form-btn">Se Connecter</button>
+                    <button id="btn-submit-register" class="form-btn">S'inscrire</button>
+                </div>
+                <p id="auth-message" class="error-msg"></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="leaderboard-modal" class="modal hidden">
+        <div class="modal-content">
+            <button id="btn-close-leaderboard" class="close-btn">X</button>
+            <h2>LEADERBOARD</h2>
+            <table id="score-table">
+                <thead><tr><th>Rang</th><th>Joueur</th><th>Score</th></tr></thead>
+                <tbody id="score-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
