@@ -94,6 +94,42 @@ const fadeOverlay = document.getElementById('fade-overlay');
     let isBlackout = false;
     let currentTemperature = 0;
 
+    // --- NOUVEAU : Mémorisation des sons d'apparition ---
+    let bbDoorSoundPlayed = false;
+    let rbDoorSoundPlayed = false;
+
+    // --- VARIABLES AUDIO D'AMBIANCE ---
+    const serverAudio = new Audio('sound_effect/ambiance_server_room.mp3');
+    serverAudio.volume = 0.3; // Volume assez bas pour que ce soit un bruit de fond (ajuste si besoin)
+    serverAudio.loop = true;  // Le son boucle s'il doit jouer longtemps
+    let serverAmbianceTimeout;
+    let isServerAmbiancePlaying = false;
+
+   // --- FONCTION POUR LES BRUITAGES (SFX) ---
+    // On ajoute 'durationMs' (en millisecondes). Si on ne met rien, le son se joue en entier.
+    function playSFX(filename, durationMs = null) {
+        const audio = new Audio(`sound_effect/${filename}`);
+        audio.volume = 0.8; 
+        
+        audio.play().catch(err => console.error("Erreur SFX :", err));
+
+        // Si tu as précisé une durée, on programme l'arrêt du son
+        if (durationMs) {
+            setTimeout(() => {
+                // Pour faire propre, on réduit le volume avant de couper (petit fondu)
+                let fadeAudio = setInterval(() => {
+                    if (audio.volume > 0.1) {
+                        audio.volume -= 0.1;
+                    } else {
+                        clearInterval(fadeAudio);
+                        audio.pause();
+                        audio.currentTime = 0; // On remet à zéro
+                    }
+                }, 50); // Baisse le volume toutes les 50ms pour adoucir la coupure
+            }, durationMs);
+        }
+    }
+
     checkAuthStatus();
 
     // =========================================================
@@ -106,6 +142,28 @@ const fadeOverlay = document.getElementById('fade-overlay');
         // Bluebear est à DROITE, Redbear est à GAUCHE
         let bbAtDoor = (currentPositions["Bluebear"] === 'porte_droite');
         let rbAtDoor = (currentPositions["Redbear"] === 'porte_gauche');
+
+        // --- GESTION DU SON D'APPARITION ---
+        // On réinitialise la mémorisation s'ils ne sont plus à la porte
+        if (!bbAtDoor) bbDoorSoundPlayed = false;
+        if (!rbAtDoor) rbDoorSoundPlayed = false;
+
+        // Est-ce qu'on regarde le bureau ? (Caméras baissées ET on ne regarde pas la fenêtre)
+        let isLookingAtDesk = !inWindowView && cameraSystem.classList.contains('hidden');
+
+        if (isLookingAtDesk) {
+            // Si Bluebear est à droite, que la porte droite est ouverte, et qu'on n'a pas encore joué le son
+            if (bbAtDoor && !isRightDoorClosed && !bbDoorSoundPlayed) {
+                playSFX('sfx_animatronic_at_door.mp3');
+                bbDoorSoundPlayed = true; // On marque comme "joué" pour ne pas spammer le son
+            }
+            // Si Redbear est à gauche, que la porte gauche est ouverte, et qu'on n'a pas encore joué le son
+            if (rbAtDoor && !isLeftDoorClosed && !rbDoorSoundPlayed) {
+                playSFX('sfx_animatronic_at_door.mp3');
+                rbDoorSoundPlayed = true;
+            }
+        }
+        // -----------------------------------
 
         if (inWindowView) {
             mainViewImg.src = isWindowClosed ? 'img/office/window/window_closed.webp' : 'img/office/window/window_open.webp';
@@ -148,9 +206,38 @@ const fadeOverlay = document.getElementById('fade-overlay');
         }
     }
 
-    doorLeftZone.addEventListener('click', () => { if(!isBlackout) { isLeftDoorClosed = !isLeftDoorClosed; updateOfficeView(); } });
-    doorRightZone.addEventListener('click', () => { if(!isBlackout) { isRightDoorClosed = !isRightDoorClosed; updateOfficeView(); } });
-    windowZone.addEventListener('click', () => { if(!isBlackout) { isWindowClosed = !isWindowClosed; updateOfficeView(); } });
+    doorLeftZone.addEventListener('click', () => { 
+        if(!isBlackout) { 
+            isLeftDoorClosed = !isLeftDoorClosed; 
+            // On joue le son correspondant à la nouvelle action
+            if (isLeftDoorClosed) playSFX('sfx_door_slam.mp3');
+            else playSFX('sfx_door_open.mp3');
+            
+            updateOfficeView(); 
+        } 
+    });
+
+    doorRightZone.addEventListener('click', () => { 
+        if(!isBlackout) { 
+            isRightDoorClosed = !isRightDoorClosed; 
+            // Pareil pour la droite
+            if (isRightDoorClosed) playSFX('sfx_door_slam.mp3');
+            else playSFX('sfx_door_open.mp3');
+            
+            updateOfficeView(); 
+        } 
+    });
+
+    windowZone.addEventListener('click', () => { 
+        if(!isBlackout) { 
+            isWindowClosed = !isWindowClosed; 
+            // Sons spécifiques à la fenêtre
+            if (isWindowClosed) playSFX('sfx_window_close.mp3');
+            else playSFX('sfx_window_open.mp3');
+            
+            updateOfficeView(); 
+        } 
+    });
 
     btnWindow.addEventListener('click', () => {
         if (isBlackout) return;
@@ -292,6 +379,9 @@ const fadeOverlay = document.getElementById('fade-overlay');
     function triggerBlackout() {
         if (isBlackout) return;
         isBlackout = true;
+        // --- NOUVEAU : Couper le bruit du serveur ---
+        stopServerAmbiance();
+        playSFX('sfx_electric_zap.mp3'); // Si tu as ce son, ça fait une bonne coupure électrique !
         
         inWindowView = false;
         cameraSystem.classList.add('hidden');      
@@ -390,7 +480,43 @@ const fadeOverlay = document.getElementById('fade-overlay');
         } catch (error) { console.error("Impossible de lancer la partie", error); }
     });
 
+    // --- GESTION DU BRUIT DE SERVEUR ALÉATOIRE ---
+    function loopServerAmbiance() {
+        if (isBlackout) {
+            stopServerAmbiance();
+            return;
+        }
+
+        if (isServerAmbiancePlaying) {
+            // Le serveur s'éteint (pause)
+            serverAudio.pause();
+            isServerAmbiancePlaying = false;
+            
+            // Temps de silence aléatoire (entre 8 et 15 secondes)
+            let silenceTime = Math.floor(Math.random() * 7000) + 8000;
+            serverAmbianceTimeout = setTimeout(loopServerAmbiance, silenceTime);
+        } else {
+            // Le serveur s'allume (play)
+            serverAudio.play().catch(err => console.error("Erreur ambiance serveur :", err));
+            isServerAmbiancePlaying = true;
+            
+            // Temps de lecture aléatoire (entre 10 et 25 secondes)
+            let playTime = Math.floor(Math.random() * 15000) + 10000;
+            serverAmbianceTimeout = setTimeout(loopServerAmbiance, playTime);
+        }
+    }
+
+    function stopServerAmbiance() {
+        clearTimeout(serverAmbianceTimeout);
+        serverAudio.pause();
+        serverAudio.currentTime = 0;
+        isServerAmbiancePlaying = false;
+    }
+
     function launchGameCore() {
+        // --- NOUVEAU : On lance la boucle d'ambiance ---
+        stopServerAmbiance(); // Sécurité pour tout réinitialiser
+        loopServerAmbiance();
         gameScreen.classList.remove('hidden');
         
         isLeftDoorClosed = false;
@@ -462,70 +588,88 @@ const fadeOverlay = document.getElementById('fade-overlay');
                     
                     currentPositions = state.positions;
                     
+                    // --- NOUVEAU : JOUER LES BRUITS DE PAS QUAND ILS PARTENT (Coupés après 2.5s) ---
+                    // Si Bluebear était à la porte droite, qu'il n'y est plus, ET qu'il ne t'a pas attaqué (pas dans l'office)
+                    if (oldBBPos === 'porte_droite' && currentPositions["Bluebear"] !== 'porte_droite' && currentPositions["Bluebear"] !== 'office') {
+                        playSFX('sfx_footsteps.mp3', 2500);
+                    }
+                    
+                    // Si Redbear était à la porte gauche, qu'il n'y est plus, ET qu'il ne t'a pas attaqué
+                    if (oldRBPos === 'porte_gauche' && currentPositions["Redbear"] !== 'porte_gauche' && currentPositions["Redbear"] !== 'office') {
+                        playSFX('sfx_footsteps.mp3', 2500);
+                    }
+                    // -------------------------------------------------------------
+
                     updateDevButtonsState();
                     
                     if (!cameraSystem.classList.contains('hidden') && currentCameraId !== 'int_01') {
                         camFeedImg.src = getCameraImageSrc(currentCameraId);
                     }
                     else if (cameraSystem.classList.contains('hidden')) {
-                        // Si l'un des deux a bougé, on rafraîchit le bureau
+                        // Si l'un des deux a bougé (arrivé ou parti), on rafraîchit le bureau
                         if (oldBBPos !== currentPositions["Bluebear"] || oldRBPos !== currentPositions["Redbear"]) {
                             updateOfficeView();
                         }
                     }
                 }
 
-                const staticTransition = document.getElementById('static-transition');
+                if (state.status === "JUMPSCARE") {
+                    clearInterval(gameInterval);
+                    if (serverDoorInterval) clearInterval(serverDoorInterval);
+                    if (tempInterval) clearInterval(tempInterval);
+                    
+                    // On coupe le bruit du serveur d'ambiance
+                    stopServerAmbiance();
 
-if (state.status === "JUMPSCARE") {
-    clearInterval(gameInterval);
-    if (serverDoorInterval) clearInterval(serverDoorInterval);
-    if (tempInterval) clearInterval(tempInterval);
+                    const attacker = state.jumpscareAnimatronic;
+                    jumpscareImg.src = `img/jumpscares/jumpscare_${attacker.toLowerCase()}.png`;
+                    
+                    // --- JOUER LE SON DU SCREAMER ---
+                    const jumpscareSound = new Audio(`sound_effect/jumpscare_${attacker.toLowerCase()}.mp3`);
+                    jumpscareSound.volume = 1.0; 
+                    jumpscareSound.play().catch(err => console.error("Erreur lecture audio :", err));
+                    
+                    // Lancement du Screamer Visuel
+                    const animClass = (attacker === "Redbear") ? 'redbear-active' : 'active';
+                    jumpscareContainer.classList.add(animClass);
+                    
+                    // Transition vers l'écran noir
+                    setTimeout(() => {
+                        fadeOverlay.style.transition = "none";
+                        fadeOverlay.classList.add('visible');
 
-    const attacker = state.jumpscareAnimatronic;
-    jumpscareImg.src = `img/jumpscares/jumpscare_${attacker.toLowerCase()}.png`;
-    
-    // 1. Lancement du Screamer
-    const animClass = (attacker === "Redbear") ? 'redbear-active' : 'active';
-    jumpscareContainer.classList.add(animClass);
-    
-    // 2. Transition : On coupe le screamer avec un écran noir brutal
-    setTimeout(() => {
-        // Affichage instantané du noir
-        fadeOverlay.style.transition = "none";
-        fadeOverlay.classList.add('visible');
+                        setTimeout(() => {
+                            // PENDANT que c'est noir, on change l'écran en dessous
+                            jumpscareContainer.classList.remove('active', 'redbear-active');
+                            cameraSystem.classList.add('hidden');
+                            cameraEffects.classList.add('hidden');
 
-        setTimeout(() => {
-            // 3. PENDANT que c'est noir, on change l'écran en dessous
-            jumpscareContainer.classList.remove('active', 'redbear-active');
-            cameraSystem.classList.add('hidden');
-            cameraEffects.classList.add('hidden');
+                            btnTempDie.click(); // Switch vers Game Over
 
-            // On switch sur le Game Over (le changement est invisible car c'est noir)
-            btnTempDie.click(); 
+                            // On attend un petit instant que le Game Over soit chargé
+                            setTimeout(() => {
+                                fadeOverlay.style.transition = "opacity 1.5s ease-in-out";
+                                fadeOverlay.style.opacity = "0";
 
-            // 4. On attend un petit instant que le Game Over soit chargé
-            setTimeout(() => {
-                // 5. On fait réapparaître l'écran (Fade In du Game Over)
-                fadeOverlay.style.transition = "opacity 1.5s ease-in-out";
-                fadeOverlay.style.opacity = "0";
+                                setTimeout(() => {
+                                    fadeOverlay.classList.remove('visible');
+                                    fadeOverlay.style.opacity = "1";
+                                }, 1500);
+                            }, 500); 
 
-                setTimeout(() => {
-                    fadeOverlay.classList.remove('visible');
-                    fadeOverlay.style.opacity = "1"; // Reset pour la prochaine fois
-                }, 1500);
-            }, 500); // Temps de pause dans le noir total
-
-        }, 100); 
-    }, 2000); // On laisse le screamer 2 secondes entières
-    
-    return;
-}
+                        }, 100); 
+                    }, 2000); 
+                    
+                    return;
+                }
 
                 if (state.status === "WON") {
                     clearInterval(gameInterval);
                     if (serverDoorInterval) clearInterval(serverDoorInterval); 
                     if (tempInterval) clearInterval(tempInterval); 
+                    
+                    // On coupe le bruit du serveur d'ambiance
+                    stopServerAmbiance();
                     
                     gameScreen.classList.add('hidden');
                     cameraSystem.classList.add('hidden'); 
