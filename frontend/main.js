@@ -263,6 +263,8 @@ document.addEventListener('DOMContentLoaded', () => {
     btnLeaderboard.addEventListener('click', () => { leaderboardModal.classList.remove('hidden'); fetchLeaderboard(); });
     btnCloseLeaderboard.addEventListener('click', () => leaderboardModal.classList.add('hidden'));
 
+   let introTimeout; // Permet d'annuler le timer si on clique sur "Passer"
+
     btnNewGame.addEventListener('click', async () => {
         const token = localStorage.getItem('fnaf_jwt');
         if (!token) return;
@@ -280,53 +282,83 @@ document.addEventListener('DOMContentLoaded', () => {
                 activeNightLevel = data.night; 
                 
                 titleScreen.classList.add('hidden');
-                gameScreen.classList.remove('hidden');
-                
-                // --- RÉINITIALISATION ---
-                isLeftDoorClosed = false;
-                isRightDoorClosed = false;
-                isWindowClosed = false;
-                inWindowView = false;
-                isServerDoorOpen = true; 
-                isBlackout = false;
-                
-                // Température UI (montrer au démarrage)
-                currentTemperature = 0;
-                tempBarFill.style.width = '0%';
-                tempPercentage.textContent = '0%';
-                temperatureUI.classList.remove('hidden');
-                
-                btnWindow.textContent = "Fenêtre";
-                
-                cameraSystem.classList.add('hidden'); 
-                cameraEffects.classList.add('hidden'); 
-                officeControls.classList.remove('hidden');
-                doorLeftZone.classList.remove('hidden');
-                doorRightZone.classList.remove('hidden');
-                windowZone.classList.add('hidden');
-                
-                currentCameraId = 'int_01'; 
-                updateOfficeView();
 
-                if (gameInterval) clearInterval(gameInterval);
-                gameInterval = setInterval(pollGameState, 1000);
+                // --- LOGIQUE D'INTRODUCTION ---
+                if (activeNightLevel === 1) {
+                    const introScreen = document.getElementById('intro-screen');
+                    const introImage = document.getElementById('intro-image');
+                    const btnSkipIntro = document.getElementById('btn-skip-intro');
+                    
+                    introScreen.classList.remove('hidden');
 
-                if (tempInterval) clearInterval(tempInterval);
-                tempInterval = setInterval(calculateTemperature, 1000); 
+                    // Petite astuce pour relancer l'animation CSS si on meurt Nuit 1 et qu'on recommence
+                    introImage.style.animation = 'none';
+                    introImage.offsetHeight; 
+                    introImage.style.animation = null;
 
-                if (serverDoorInterval) clearInterval(serverDoorInterval);
-                serverDoorInterval = setInterval(() => {
-                    if (isServerDoorOpen && !isBlackout && Math.random() < 0.4) {
-                        isServerDoorOpen = false;
-                        if (currentCameraId === 'int_01' && !cameraSystem.classList.contains('hidden')) {
-                            camFeedImg.src = 'img/cameras/int_01/cam_int_01_empty.webp';
-                            btnOpenServer.classList.remove('disabled');
-                        }
-                    }
-                }, 3000);
+                    const skipIntro = () => {
+                        clearTimeout(introTimeout); // Stoppe le chrono de 10s
+                        introScreen.classList.add('hidden');
+                        btnSkipIntro.removeEventListener('click', skipIntro);
+                        launchGameCore(); // Lance vraiment le jeu
+                    };
+
+                    btnSkipIntro.addEventListener('click', skipIntro);
+                    introTimeout = setTimeout(skipIntro, 20000); // Passe au jeu après 20s
+                } else {
+                    // Si on est Nuit 2 ou +, on lance le jeu directement sans l'article
+                    launchGameCore();
+                }
             }
         } catch (error) { console.error("Impossible de lancer la partie", error); }
     });
+
+    // Fonction qui s'occupe de réinitialiser le bureau et lancer les chronos
+    function launchGameCore() {
+        gameScreen.classList.remove('hidden');
+        
+        // --- RÉINITIALISATION ---
+        isLeftDoorClosed = false;
+        isRightDoorClosed = false;
+        isWindowClosed = false;
+        inWindowView = false;
+        isServerDoorOpen = true; 
+        isBlackout = false;
+        
+        currentTemperature = 0;
+        tempBarFill.style.width = '0%';
+        tempPercentage.textContent = '0%';
+        temperatureUI.classList.remove('hidden');
+        
+        btnWindow.textContent = "Fenêtre";
+        
+        cameraSystem.classList.add('hidden'); 
+        cameraEffects.classList.add('hidden'); 
+        officeControls.classList.remove('hidden');
+        doorLeftZone.classList.remove('hidden');
+        doorRightZone.classList.remove('hidden');
+        windowZone.classList.add('hidden');
+        
+        currentCameraId = 'int_01'; 
+        updateOfficeView();
+
+        if (gameInterval) clearInterval(gameInterval);
+        gameInterval = setInterval(pollGameState, 1000);
+
+        if (tempInterval) clearInterval(tempInterval);
+        tempInterval = setInterval(calculateTemperature, 1000); 
+
+        if (serverDoorInterval) clearInterval(serverDoorInterval);
+        serverDoorInterval = setInterval(() => {
+            if (isServerDoorOpen && !isBlackout && Math.random() < 0.4) {
+                isServerDoorOpen = false;
+                if (currentCameraId === 'int_01' && !cameraSystem.classList.contains('hidden')) {
+                    camFeedImg.src = 'img/cameras/int_01/cam_int_01_empty.webp';
+                    btnOpenServer.classList.remove('disabled');
+                }
+            }
+        }, 3000);
+    }
 
     async function pollGameState() {
         const token = localStorage.getItem('fnaf_jwt');

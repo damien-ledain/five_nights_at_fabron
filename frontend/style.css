@@ -330,3 +330,35 @@ body { background-color: var(--bg-color); color: var(--text-color); font-family:
 }
 
 .dev-kill-btn { top: 90px !important; }
+
+/* ========================================================= */
+/* --- ÉCRAN D'INTRODUCTION (NUIT 1) ---                     */
+/* ========================================================= */
+#intro-screen {
+    z-index: 85; /* Au-dessus du menu et du jeu */
+    background-color: black;
+}
+
+
+#btn-skip-intro {
+    position: absolute;
+    bottom: 40px;
+    right: 50px;
+    font-size: 2.5rem;
+}
+
+#intro-image {
+    max-width: 70%;
+    max-height: 80vh;
+    object-fit: contain;
+    opacity: 0;
+    /* L'animation dure désormais 20s au total */
+    animation: fadeInOutIntro 20s forwards;
+}
+
+@keyframes fadeInOutIntro {
+    0% { opacity: 0; }
+    5% { opacity: 1; }  /* Apparaît en 1 seconde */
+    95% { opacity: 1; } /* Reste visible jusqu'à la 19ème seconde */
+    100% { opacity: 0; } /* Disparaît à la fin */
+}
