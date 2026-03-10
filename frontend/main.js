@@ -76,10 +76,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const temperatureUI = document.getElementById('temperature-ui');
     const tempBarFill = document.getElementById('temp-bar-fill');
     const tempPercentage = document.getElementById('temp-percentage');
-const fadeOverlay = document.getElementById('fade-overlay');
+    const fadeOverlay = document.getElementById('fade-overlay');
+    const devPanelTitle = document.getElementById('dev-panel-title');
+    const btnDevSetNight = document.getElementById('btn-dev-set-night');
+    const devNightInput = document.getElementById('dev-night-input');
+    const btnDevJumpscare = document.getElementById('btn-dev-jumpscare');
     let gameInterval;
     // On initialise les positions au spawn
-    let currentPositions = { "Bluebear": "ext_03", "Redbear": "ext_03" };
+    let currentPositions = { "Bluebear": "ext_03", "Redbear": "ext_03", "Burncap": "ext_01_0" };
     let serverDoorInterval;
     let tempInterval;
     let currentCameraId = 'int_01';
@@ -94,38 +98,37 @@ const fadeOverlay = document.getElementById('fade-overlay');
     let isBlackout = false;
     let currentTemperature = 0;
 
-    // --- NOUVEAU : Mémorisation des sons d'apparition ---
+    let isGoldenFabronActive = false; // NOUVEAU
+
+    // --- Mémorisation des sons d'apparition ---
     let bbDoorSoundPlayed = false;
     let rbDoorSoundPlayed = false;
 
     // --- VARIABLES AUDIO D'AMBIANCE ---
     const serverAudio = new Audio('sound_effect/ambiance_server_room.mp3');
-    serverAudio.volume = 0.3; // Volume assez bas pour que ce soit un bruit de fond (ajuste si besoin)
-    serverAudio.loop = true;  // Le son boucle s'il doit jouer longtemps
+    serverAudio.volume = 0.15; 
+    serverAudio.loop = true;  
     let serverAmbianceTimeout;
     let isServerAmbiancePlaying = false;
 
-   // --- FONCTION POUR LES BRUITAGES (SFX) ---
-    // On ajoute 'durationMs' (en millisecondes). Si on ne met rien, le son se joue en entier.
+    // --- FONCTION POUR LES BRUITAGES (SFX) ---
     function playSFX(filename, durationMs = null) {
         const audio = new Audio(`sound_effect/${filename}`);
         audio.volume = 0.8; 
         
         audio.play().catch(err => console.error("Erreur SFX :", err));
 
-        // Si tu as précisé une durée, on programme l'arrêt du son
         if (durationMs) {
             setTimeout(() => {
-                // Pour faire propre, on réduit le volume avant de couper (petit fondu)
                 let fadeAudio = setInterval(() => {
                     if (audio.volume > 0.1) {
                         audio.volume -= 0.1;
                     } else {
                         clearInterval(fadeAudio);
                         audio.pause();
-                        audio.currentTime = 0; // On remet à zéro
+                        audio.currentTime = 0;
                     }
-                }, 50); // Baisse le volume toutes les 50ms pour adoucir la coupure
+                }, 50); 
             }, durationMs);
         }
     }
@@ -139,60 +142,43 @@ const fadeOverlay = document.getElementById('fade-overlay');
     function updateOfficeView() {
         if (isBlackout) return;
 
-        // Bluebear est à DROITE, Redbear est à GAUCHE
         let bbAtDoor = (currentPositions["Bluebear"] === 'porte_droite');
         let rbAtDoor = (currentPositions["Redbear"] === 'porte_gauche');
 
-        // --- GESTION DU SON D'APPARITION ---
-        // On réinitialise la mémorisation s'ils ne sont plus à la porte
         if (!bbAtDoor) bbDoorSoundPlayed = false;
         if (!rbAtDoor) rbDoorSoundPlayed = false;
 
-        // Est-ce qu'on regarde le bureau ? (Caméras baissées ET on ne regarde pas la fenêtre)
         let isLookingAtDesk = !inWindowView && cameraSystem.classList.contains('hidden');
 
         if (isLookingAtDesk) {
-            // Si Bluebear est à droite, que la porte droite est ouverte, et qu'on n'a pas encore joué le son
             if (bbAtDoor && !isRightDoorClosed && !bbDoorSoundPlayed) {
                 playSFX('sfx_animatronic_at_door.mp3');
-                bbDoorSoundPlayed = true; // On marque comme "joué" pour ne pas spammer le son
+                bbDoorSoundPlayed = true; 
             }
-            // Si Redbear est à gauche, que la porte gauche est ouverte, et qu'on n'a pas encore joué le son
             if (rbAtDoor && !isLeftDoorClosed && !rbDoorSoundPlayed) {
                 playSFX('sfx_animatronic_at_door.mp3');
                 rbDoorSoundPlayed = true;
             }
         }
-        // -----------------------------------
 
         if (inWindowView) {
             mainViewImg.src = isWindowClosed ? 'img/office/window/window_closed.webp' : 'img/office/window/window_open.webp';
         } else {
-            // 1. LES DEUX PORTES FERMÉES
             if (isLeftDoorClosed && isRightDoorClosed) {
                 mainViewImg.src = 'img/office/desk/desk_closed.webp';
-            } 
-            
-            // 2. SEULEMENT PORTE GAUCHE FERMÉE
-            else if (isLeftDoorClosed) {
+            } else if (isLeftDoorClosed) {
                 if (bbAtDoor) {
-                    mainViewImg.src = 'img/office/desk/desk_left_closed_bluebear_right.webp'; // NOUVEAU
+                    mainViewImg.src = 'img/office/desk/desk_left_closed_bluebear_right.webp';
                 } else {
                     mainViewImg.src = 'img/office/desk/desk_left_closed.webp';
                 }
-            } 
-            
-            // 3. SEULEMENT PORTE DROITE FERMÉE
-            else if (isRightDoorClosed) {
+            } else if (isRightDoorClosed) {
                 if (rbAtDoor) {
-                    mainViewImg.src = 'img/office/desk/desk_right_closed_redbear_left.webp'; // NOUVEAU
+                    mainViewImg.src = 'img/office/desk/desk_right_closed_redbear_left.webp'; 
                 } else {
                     mainViewImg.src = 'img/office/desk/desk_right_closed.webp';
                 }
-            } 
-            
-            // 4. LES DEUX PORTES OUVERTES
-            else {
+            } else {
                 if (bbAtDoor && rbAtDoor) {
                     mainViewImg.src = 'img/office/desk/desk_open_redbear_left_bluebear_right.webp';
                 } else if (bbAtDoor) {
@@ -209,10 +195,8 @@ const fadeOverlay = document.getElementById('fade-overlay');
     doorLeftZone.addEventListener('click', () => { 
         if(!isBlackout) { 
             isLeftDoorClosed = !isLeftDoorClosed; 
-            // On joue le son correspondant à la nouvelle action
             if (isLeftDoorClosed) playSFX('sfx_door_slam.mp3');
             else playSFX('sfx_door_open.mp3');
-            
             updateOfficeView(); 
         } 
     });
@@ -220,10 +204,8 @@ const fadeOverlay = document.getElementById('fade-overlay');
     doorRightZone.addEventListener('click', () => { 
         if(!isBlackout) { 
             isRightDoorClosed = !isRightDoorClosed; 
-            // Pareil pour la droite
             if (isRightDoorClosed) playSFX('sfx_door_slam.mp3');
             else playSFX('sfx_door_open.mp3');
-            
             updateOfficeView(); 
         } 
     });
@@ -231,10 +213,8 @@ const fadeOverlay = document.getElementById('fade-overlay');
     windowZone.addEventListener('click', () => { 
         if(!isBlackout) { 
             isWindowClosed = !isWindowClosed; 
-            // Sons spécifiques à la fenêtre
             if (isWindowClosed) playSFX('sfx_window_close.mp3');
             else playSFX('sfx_window_open.mp3');
-            
             updateOfficeView(); 
         } 
     });
@@ -265,22 +245,27 @@ const fadeOverlay = document.getElementById('fade-overlay');
     function getCameraImageSrc(camId) {
         let bbLoc = currentPositions["Bluebear"];
         let rbLoc = currentPositions["Redbear"];
+        let bcLoc = currentPositions["Burncap"]; 
 
-        // Logique spécifique pour le Spawn (EXT 03)
         if (camId === 'ext_03') {
             if (bbLoc === 'ext_03' && rbLoc === 'ext_03') {
                 return 'img/cameras/ext_03/cam_ext_03_full.webp'; 
             } else if (rbLoc === 'ext_03') {
-                return 'img/cameras/ext_03/cam_ext_03_bluebear_out.webp'; // BB est sorti
+                return 'img/cameras/ext_03/cam_ext_03_bluebear_out.webp'; 
             } else if (bbLoc === 'ext_03') {
-                return 'img/cameras/ext_03/cam_ext_03_redbear_out.webp'; // RB est sorti (théoriquement impossible au début)
+                return 'img/cameras/ext_03/cam_ext_03_redbear_out.webp'; 
             } else {
-                return 'img/cameras/ext_03/cam_ext_03_empty.webp'; // Les deux sont partis
+                return 'img/cameras/ext_03/cam_ext_03_empty.webp'; 
             }
         } 
+
+        if (camId === 'ext_01') {
+            if (bcLoc === 'ext_01_1') return 'img/cameras/ext_01/cam_ext_01_burncap_01.webp';
+            if (bcLoc === 'ext_01_2') return 'img/cameras/ext_01/cam_ext_01_burncap_02.webp';
+            if (bcLoc === 'ext_01_3') return 'img/cameras/ext_01/cam_ext_01_burncap_03.webp';
+            return 'img/cameras/ext_01/cam_ext_01_empty.webp'; 
+        }
         
-        // Logique quand ils peuvent se croiser ou se pousser
-        // On affiche celui qui est sur la cam. Si les deux y sont (poussée), on affiche le dernier arrivé (ici Redbear)
         if (rbLoc === camId) return `img/cameras/${camId}/cam_${camId}_redbear.webp`;
         if (bbLoc === camId) return `img/cameras/${camId}/cam_${camId}_bluebear.webp`;
         
@@ -297,7 +282,11 @@ const fadeOverlay = document.getElementById('fade-overlay');
 
         if (camId === 'int_01') {
             btnOpenServer.classList.remove('hidden');
-            if (isServerDoorOpen) {
+            
+            if (isGoldenFabronActive) {
+                camFeedImg.src = 'img/cameras/int_01/cam_int_01_golden_fabron.webp';
+                btnOpenServer.classList.add('disabled'); 
+            } else if (isServerDoorOpen) {
                 camFeedImg.src = 'img/cameras/int_01/cam_int_01_open.webp';
                 btnOpenServer.classList.add('disabled'); 
             } else {
@@ -330,6 +319,13 @@ const fadeOverlay = document.getElementById('fade-overlay');
         officeControls.classList.remove('hidden'); 
         doorLeftZone.classList.remove('hidden');
         doorRightZone.classList.remove('hidden');
+
+        if (isGoldenFabronActive) {
+            if (Math.random() < (1 / 50)) {
+                triggerGoldenFabronCrash();
+            }
+            isGoldenFabronActive = false; 
+        }
     });
 
     camBtns.forEach(btn => {
@@ -346,7 +342,21 @@ const fadeOverlay = document.getElementById('fade-overlay');
         if (!isServerDoorOpen && !isBlackout) {
             isServerDoorOpen = true;
             btnOpenServer.classList.add('disabled');
-            if (currentCameraId === 'int_01') camFeedImg.src = 'img/cameras/int_01/cam_int_01_open.webp';
+            
+            playSFX('sfx_door_open.mp3');
+            loopServerAmbiance();
+
+            if (activeNightLevel >= 4 && Math.random() < (1 / 25)) {
+                isGoldenFabronActive = true;
+            }
+
+            if (currentCameraId === 'int_01') {
+                if (isGoldenFabronActive) {
+                    camFeedImg.src = 'img/cameras/int_01/cam_int_01_golden_fabron.webp';
+                } else {
+                    camFeedImg.src = 'img/cameras/int_01/cam_int_01_open.webp';
+                }
+            }
         }
     });
 
@@ -356,10 +366,21 @@ const fadeOverlay = document.getElementById('fade-overlay');
 
     function updateDevButtonsState() {
         const animatronicName = devAnimatronicSelect.value;
+
+        if (animatronicName === 'GoldenFabron') {
+            btnDevBackward.disabled = !isGoldenFabronActive;
+            btnDevBackward.style.opacity = !isGoldenFabronActive ? '0.3' : '1';
+            btnDevBackward.style.cursor = !isGoldenFabronActive ? 'not-allowed' : 'pointer';
+
+            btnDevForward.disabled = isGoldenFabronActive;
+            btnDevForward.style.opacity = isGoldenFabronActive ? '0.3' : '1';
+            btnDevForward.style.cursor = isGoldenFabronActive ? 'not-allowed' : 'pointer';
+            return; 
+        }
         const pos = currentPositions[animatronicName];
 
-        const isAtSpawn = (pos === 'ext_03');
-        const isAtDoor = (pos === 'porte_droite' || pos === 'porte_gauche');
+        const isAtSpawn = (pos === 'ext_03' || pos === 'ext_01_0');
+        const isAtDoor = (pos === 'porte_droite' || pos === 'porte_gauche' || pos === 'ext_01_3');
 
         btnDevBackward.disabled = isAtSpawn;
         btnDevBackward.style.opacity = isAtSpawn ? '0.3' : '1';
@@ -379,9 +400,8 @@ const fadeOverlay = document.getElementById('fade-overlay');
     function triggerBlackout() {
         if (isBlackout) return;
         isBlackout = true;
-        // --- NOUVEAU : Couper le bruit du serveur ---
         stopServerAmbiance();
-        playSFX('sfx_electric_zap.mp3'); // Si tu as ce son, ça fait une bonne coupure électrique !
+        playSFX('sfx_electric_zap.mp3'); 
         
         inWindowView = false;
         cameraSystem.classList.add('hidden');      
@@ -480,7 +500,6 @@ const fadeOverlay = document.getElementById('fade-overlay');
         } catch (error) { console.error("Impossible de lancer la partie", error); }
     });
 
-    // --- GESTION DU BRUIT DE SERVEUR ALÉATOIRE ---
     function loopServerAmbiance() {
         if (isBlackout) {
             stopServerAmbiance();
@@ -488,19 +507,13 @@ const fadeOverlay = document.getElementById('fade-overlay');
         }
 
         if (isServerAmbiancePlaying) {
-            // Le serveur s'éteint (pause)
             serverAudio.pause();
             isServerAmbiancePlaying = false;
-            
-            // Temps de silence aléatoire (entre 8 et 15 secondes)
             let silenceTime = Math.floor(Math.random() * 7000) + 8000;
             serverAmbianceTimeout = setTimeout(loopServerAmbiance, silenceTime);
         } else {
-            // Le serveur s'allume (play)
             serverAudio.play().catch(err => console.error("Erreur ambiance serveur :", err));
             isServerAmbiancePlaying = true;
-            
-            // Temps de lecture aléatoire (entre 10 et 25 secondes)
             let playTime = Math.floor(Math.random() * 15000) + 10000;
             serverAmbianceTimeout = setTimeout(loopServerAmbiance, playTime);
         }
@@ -514,8 +527,7 @@ const fadeOverlay = document.getElementById('fade-overlay');
     }
 
     function launchGameCore() {
-        // --- NOUVEAU : On lance la boucle d'ambiance ---
-        stopServerAmbiance(); // Sécurité pour tout réinitialiser
+        stopServerAmbiance(); 
         loopServerAmbiance();
         gameScreen.classList.remove('hidden');
         
@@ -525,6 +537,7 @@ const fadeOverlay = document.getElementById('fade-overlay');
         inWindowView = false;
         isServerDoorOpen = true; 
         isBlackout = false;
+        isGoldenFabronActive = false; // Réinitialisation
         
         currentTemperature = 0;
         tempBarFill.style.width = '0%';
@@ -539,9 +552,26 @@ const fadeOverlay = document.getElementById('fade-overlay');
         doorLeftZone.classList.remove('hidden');
         doorRightZone.classList.remove('hidden');
         windowZone.classList.add('hidden');
+
+        // --- NOUVEAU : Afficher le panel Dev In-Game uniquement pour les devs ---
+        const devPanel = document.getElementById('dev-panel');
+        if (devPanel) {
+            const userDataStr = localStorage.getItem('fnaf_user');
+            if (userDataStr) {
+                const user = JSON.parse(userDataStr);
+                const isDev = (user.username === "Hamza" || user.username === "Nathan" || user.username === "Damien");
+                if (isDev) {
+                    devPanel.classList.remove('hidden');
+                } else {
+                    devPanel.classList.add('hidden');
+                }
+            } else {
+                devPanel.classList.add('hidden');
+            }
+        }
         
         currentCameraId = 'int_01'; 
-        currentPositions = { "Bluebear": "ext_03", "Redbear": "ext_03" };
+        currentPositions = { "Bluebear": "ext_03", "Redbear": "ext_03", "Burncap": "ext_01_0" };
         updateOfficeView();
         updateDevButtonsState();
 
@@ -555,6 +585,10 @@ const fadeOverlay = document.getElementById('fade-overlay');
         serverDoorInterval = setInterval(() => {
             if (isServerDoorOpen && !isBlackout && Math.random() < 0.4) {
                 isServerDoorOpen = false;
+                
+                stopServerAmbiance();
+                playSFX('sfx_door_slam.mp3');
+
                 if (currentCameraId === 'int_01' && !cameraSystem.classList.contains('hidden')) {
                     camFeedImg.src = 'img/cameras/int_01/cam_int_01_empty.webp';
                     btnOpenServer.classList.remove('disabled');
@@ -565,6 +599,10 @@ const fadeOverlay = document.getElementById('fade-overlay');
 
     async function pollGameState() {
         const token = localStorage.getItem('fnaf_jwt');
+        
+        const isCamActive = !cameraSystem.classList.contains('hidden');
+        const activeCamToSync = isCamActive ? currentCameraId : "";
+
         try {
             const response = await fetch('http://localhost:8080/api/game/state', {
                 method: 'POST',
@@ -574,7 +612,9 @@ const fadeOverlay = document.getElementById('fade-overlay');
                 },
                 body: JSON.stringify({
                     rightDoorClosed: isRightDoorClosed,
-                    leftDoorClosed: isLeftDoorClosed
+                    leftDoorClosed: isLeftDoorClosed,
+                    windowClosed: isWindowClosed, 
+                    currentCamera: activeCamToSync 
                 })
             });
 
@@ -582,23 +622,27 @@ const fadeOverlay = document.getElementById('fade-overlay');
                 const state = await response.json();
                 inGameHour.textContent = state.currentHour;
 
+                if (state.events && state.events.length > 0) {
+                    state.events.forEach(eventName => {
+                        if (eventName === "sfx_window_knock") {
+                            playSFX('sfx_window_knock.mp3');
+                        }
+                    });
+                }
+
                 if (state.positions) {
                     let oldBBPos = currentPositions["Bluebear"];
                     let oldRBPos = currentPositions["Redbear"];
                     
                     currentPositions = state.positions;
                     
-                    // --- NOUVEAU : JOUER LES BRUITS DE PAS QUAND ILS PARTENT (Coupés après 2.5s) ---
-                    // Si Bluebear était à la porte droite, qu'il n'y est plus, ET qu'il ne t'a pas attaqué (pas dans l'office)
                     if (oldBBPos === 'porte_droite' && currentPositions["Bluebear"] !== 'porte_droite' && currentPositions["Bluebear"] !== 'office') {
                         playSFX('sfx_footsteps.mp3', 2500);
                     }
                     
-                    // Si Redbear était à la porte gauche, qu'il n'y est plus, ET qu'il ne t'a pas attaqué
                     if (oldRBPos === 'porte_gauche' && currentPositions["Redbear"] !== 'porte_gauche' && currentPositions["Redbear"] !== 'office') {
                         playSFX('sfx_footsteps.mp3', 2500);
                     }
-                    // -------------------------------------------------------------
 
                     updateDevButtonsState();
                     
@@ -606,7 +650,6 @@ const fadeOverlay = document.getElementById('fade-overlay');
                         camFeedImg.src = getCameraImageSrc(currentCameraId);
                     }
                     else if (cameraSystem.classList.contains('hidden')) {
-                        // Si l'un des deux a bougé (arrivé ou parti), on rafraîchit le bureau
                         if (oldBBPos !== currentPositions["Bluebear"] || oldRBPos !== currentPositions["Redbear"]) {
                             updateOfficeView();
                         }
@@ -618,35 +661,31 @@ const fadeOverlay = document.getElementById('fade-overlay');
                     if (serverDoorInterval) clearInterval(serverDoorInterval);
                     if (tempInterval) clearInterval(tempInterval);
                     
-                    // On coupe le bruit du serveur d'ambiance
                     stopServerAmbiance();
 
                     const attacker = state.jumpscareAnimatronic;
                     jumpscareImg.src = `img/jumpscares/jumpscare_${attacker.toLowerCase()}.png`;
                     
-                    // --- JOUER LE SON DU SCREAMER ---
-                    const jumpscareSound = new Audio(`sound_effect/jumpscare_${attacker.toLowerCase()}.mp3`);
+                    let audioExt = (attacker === "Burncap") ? "m4a" : "mp3";
+                    const jumpscareSound = new Audio(`sound_effect/jumpscare_${attacker.toLowerCase()}.${audioExt}`);
+                    
                     jumpscareSound.volume = 1.0; 
                     jumpscareSound.play().catch(err => console.error("Erreur lecture audio :", err));
                     
-                    // Lancement du Screamer Visuel
                     const animClass = (attacker === "Redbear") ? 'redbear-active' : 'active';
                     jumpscareContainer.classList.add(animClass);
                     
-                    // Transition vers l'écran noir
                     setTimeout(() => {
                         fadeOverlay.style.transition = "none";
                         fadeOverlay.classList.add('visible');
 
                         setTimeout(() => {
-                            // PENDANT que c'est noir, on change l'écran en dessous
                             jumpscareContainer.classList.remove('active', 'redbear-active');
                             cameraSystem.classList.add('hidden');
                             cameraEffects.classList.add('hidden');
 
-                            btnTempDie.click(); // Switch vers Game Over
+                            btnTempDie.click(); 
 
-                            // On attend un petit instant que le Game Over soit chargé
                             setTimeout(() => {
                                 fadeOverlay.style.transition = "opacity 1.5s ease-in-out";
                                 fadeOverlay.style.opacity = "0";
@@ -668,7 +707,6 @@ const fadeOverlay = document.getElementById('fade-overlay');
                     if (serverDoorInterval) clearInterval(serverDoorInterval); 
                     if (tempInterval) clearInterval(tempInterval); 
                     
-                    // On coupe le bruit du serveur d'ambiance
                     stopServerAmbiance();
                     
                     gameScreen.classList.add('hidden');
@@ -705,10 +743,26 @@ const fadeOverlay = document.getElementById('fade-overlay');
         } catch (error) { console.error("Erreur de synchronisation", error); }
     }
 
-    // --- LOGIQUE BOUTONS DEV ---
     async function forceMoveAnimatronic(direction) {
         const token = localStorage.getItem('fnaf_jwt');
         const animatronicName = devAnimatronicSelect.value;
+
+        if (animatronicName === 'GoldenFabron') {
+            isGoldenFabronActive = (direction === 'forward');
+            
+            if (currentCameraId === 'int_01') {
+                if (isGoldenFabronActive) {
+                    camFeedImg.src = 'img/cameras/int_01/cam_int_01_golden_fabron.webp';
+                    btnOpenServer.classList.add('disabled');
+                } else {
+                    camFeedImg.src = isServerDoorOpen ? 'img/cameras/int_01/cam_int_01_open.webp' : 'img/cameras/int_01/cam_int_01_empty.webp';
+                    if (!isServerDoorOpen) btnOpenServer.classList.remove('disabled');
+                }
+            }
+            
+            updateDevButtonsState();
+            return; 
+        }
         try {
             await fetch('http://localhost:8080/api/game/dev/move', {
                 method: 'POST',
@@ -738,9 +792,12 @@ const fadeOverlay = document.getElementById('fade-overlay');
 
             if (response.ok) {
                 const data = await response.json();
+                
                 clearInterval(gameInterval);
                 if (serverDoorInterval) clearInterval(serverDoorInterval); 
                 if (tempInterval) clearInterval(tempInterval); 
+                
+                stopServerAmbiance(); 
                 
                 const userDataStr = localStorage.getItem('fnaf_user');
                 if (userDataStr) {
@@ -755,7 +812,9 @@ const fadeOverlay = document.getElementById('fade-overlay');
                 temperatureUI.classList.add('hidden');
                 gameOverScreen.classList.remove('hidden');
             }
-        } catch (error) { console.error("Impossible de mourir", error); }
+        } catch (error) { 
+            console.error("Impossible de mourir", error); 
+        }
     });
 
     btnReturnMenuGo.addEventListener('click', () => {
@@ -768,6 +827,40 @@ const fadeOverlay = document.getElementById('fade-overlay');
 
     btnSubmitRegister.addEventListener('click', () => handleAuth('http://localhost:8080/api/auth/register'));
     btnSubmitLogin.addEventListener('click', () => handleAuth('http://localhost:8080/api/auth/login'));
+
+    if (btnDevSetNight) {
+        btnDevSetNight.addEventListener('click', async () => {
+            const token = localStorage.getItem('fnaf_jwt');
+            if (!token) return;
+            const targetNight = parseInt(devNightInput.value, 10);
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/game/dev/set-night', {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify({ night: targetNight })
+                });
+
+                if (response.ok) {
+                    const userDataStr = localStorage.getItem('fnaf_user');
+                    if (userDataStr) {
+                        const user = JSON.parse(userDataStr);
+                        user.currentNight = targetNight;
+                        if (targetNight > user.maxNight) user.maxNight = targetNight;
+                        localStorage.setItem('fnaf_user', JSON.stringify(user));
+                    }
+                    
+                    checkAuthStatus(); 
+                    btnNewGame.click();
+                }
+            } catch (error) { 
+                console.error("Erreur changement de nuit", error); 
+            }
+        });
+    }
 
     async function handleAuth(url) {
         const username = inputUsername.value.trim();
@@ -784,14 +877,21 @@ const fadeOverlay = document.getElementById('fade-overlay');
 
             const data = await response.json();
             localStorage.setItem('fnaf_jwt', data.token);
+            
             localStorage.setItem('fnaf_user', JSON.stringify({
-                username: data.username, maxNight: data.maxNight, bestScore: data.bestScore, currentNight: data.currentNight
+                id: data.id, 
+                username: data.username, 
+                maxNight: data.maxNight, 
+                bestScore: data.bestScore, 
+                currentNight: data.currentNight
             }));
 
             authModal.classList.add('hidden');
             inputPassword.value = '';
             checkAuthStatus();
-        } catch (error) { authMessage.textContent = error.message; }
+        } catch (error) { 
+            authMessage.textContent = error.message; 
+        }
     }
 
     function checkAuthStatus() {
@@ -815,10 +915,18 @@ const fadeOverlay = document.getElementById('fade-overlay');
             btnShowLogin.classList.add('hidden');
             btnNewGame.classList.remove('hidden');
             playerStatsContainer.classList.remove('hidden');
+            
+            // NOUVEAU : On vérifie le PSEUDO du joueur pour le panneau Dev de l'accueil
+            if (devPanelTitle) {
+                const isDev = (user.username === "Hamza" || user.username === "Nathan" || user.username === "Damien");
+                if (isDev) devPanelTitle.classList.remove('hidden');
+                else devPanelTitle.classList.add('hidden');
+            }
         } else {
             btnShowLogin.classList.remove('hidden');
             btnNewGame.classList.add('hidden');
             playerStatsContainer.classList.add('hidden');
+            if (devPanelTitle) devPanelTitle.classList.add('hidden'); 
         }
     }
 
@@ -837,5 +945,57 @@ const fadeOverlay = document.getElementById('fade-overlay');
                 scoreBody.appendChild(row);
             });
         } catch (error) { scoreBody.innerHTML = '<tr><td colspan="3" style="color: red;">Erreur de connexion au serveur.</td></tr>'; }
+    }
+
+
+    // =========================================================
+    // --- FONCTION SPÉCIALE : CRASH GOLDEN FABRON ---
+    // =========================================================
+    async function triggerGoldenFabronCrash() {
+        clearInterval(gameInterval);
+        if (serverDoorInterval) clearInterval(serverDoorInterval); 
+        if (tempInterval) clearInterval(tempInterval); 
+        stopServerAmbiance(); 
+        
+        const token = localStorage.getItem('fnaf_jwt');
+        try {
+            const response = await fetch('http://localhost:8080/api/game/gameover', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const userDataStr = localStorage.getItem('fnaf_user');
+                if (userDataStr) {
+                    const user = JSON.parse(userDataStr);
+                    user.currentNight = data.currentNight;
+                    user.bestScore = data.bestScore; 
+                    localStorage.setItem('fnaf_user', JSON.stringify(user));
+                }
+            }
+        } catch (error) { console.error(error); }
+
+        jumpscareImg.src = 'img/jumpscares/jumpscare_goldenfabron.png';
+        const goldenSound = new Audio('sound_effect/jumpscare_golden_fabron.mp3');
+        goldenSound.volume = 1.0; 
+        goldenSound.play().catch(err => console.error(err));
+        
+        jumpscareContainer.classList.add('golden-active');
+
+        const crashDelay = Math.floor(Math.random() * 3000) + 3000; // Entre 3 et 6s
+        setTimeout(() => {
+            goldenSound.pause();
+            goldenSound.currentTime = 0;
+            
+            jumpscareContainer.classList.remove('golden-active');
+            
+            gameScreen.classList.add('hidden');
+            temperatureUI.classList.add('hidden');
+            titleScreen.classList.remove('hidden');
+            cameraEffects.classList.remove('hidden'); 
+            
+            checkAuthStatus();
+            fetchLeaderboard(); 
+        }, crashDelay);
     }
 });

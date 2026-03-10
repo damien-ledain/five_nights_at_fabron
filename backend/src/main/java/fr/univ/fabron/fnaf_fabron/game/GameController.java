@@ -33,10 +33,8 @@ public class GameController {
     private final ScoreRepository scoreRepository;
     private final JwtUtil jwtUtil;
     
-    // NOUVEAU : Le service qui gère la partie en temps réel (l'IA)
     private final GameEngineService gameEngine;
 
-    // Ajout de GameEngineService dans le constructeur
     public GameController(GameSessionRepository gameSessionRepository, PlayerRepository playerRepository, ScoreRepository scoreRepository, JwtUtil jwtUtil, GameEngineService gameEngine) {
         this.gameSessionRepository = gameSessionRepository;
         this.playerRepository = playerRepository;
@@ -50,7 +48,6 @@ public class GameController {
         Player player = getPlayerFromToken(authHeader);
         if (player == null) return ResponseEntity.status(401).body("Non autorisé");
 
-        // On récupère TOUTES les anciennes sessions bloquées en true et on les désactive
         List<GameSession> oldSessions = gameSessionRepository.findByPlayerAndActiveTrue(player);
         for (GameSession oldSession : oldSessions) {
             oldSession.setActive(false);
@@ -68,26 +65,28 @@ public class GameController {
         session.setStartTime(LocalDateTime.now());
         gameSessionRepository.save(session);
 
-        // NOUVEAU : Initialisation de la partie en mémoire pour les animatroniques
         gameEngine.initGame(player.getId(), currentNight);
 
         return ResponseEntity.ok(Map.of("message", "Nuit commencée", "night", currentNight));
     }
 
-    // NOUVEAU : On passe de @GetMapping à @PostMapping pour recevoir l'état des portes
     @PostMapping("/state")
-    public ResponseEntity<?> syncGameState(@RequestHeader("Authorization") String authHeader, @RequestBody(required = false) Map<String, Boolean> playerActions) {
+    public ResponseEntity<?> syncGameState(@RequestHeader("Authorization") String authHeader, @RequestBody(required = false) Map<String, Object> playerActions) {
         Player player = getPlayerFromToken(authHeader);
         if (player == null) return ResponseEntity.status(401).body("Non autorisé");
 
-        // Récupération de l'état de la partie en mémoire
         GameState memoryState = gameEngine.getGameState(player.getId());
         if (memoryState == null) return ResponseEntity.badRequest().body("Partie non initialisée en mémoire");
 
-        // 1. Mettre à jour l'état des portes envoyé par le front
+        // 1. Mettre à jour l'état envoyé par le front (Portes, Fenêtre, Caméra)
         if (playerActions != null) {
-            if (playerActions.containsKey("rightDoorClosed")) memoryState.setRightDoorClosed(playerActions.get("rightDoorClosed"));
-            if (playerActions.containsKey("leftDoorClosed")) memoryState.setLeftDoorClosed(playerActions.get("leftDoorClosed"));
+            if (playerActions.containsKey("rightDoorClosed")) memoryState.setRightDoorClosed((Boolean) playerActions.get("rightDoorClosed"));
+            if (playerActions.containsKey("leftDoorClosed")) memoryState.setLeftDoorClosed((Boolean) playerActions.get("leftDoorClosed"));
+            if (playerActions.containsKey("windowClosed")) memoryState.setWindowClosed((Boolean) playerActions.get("windowClosed"));
+            if (playerActions.containsKey("currentCamera")) {
+                Object cam = playerActions.get("currentCamera");
+                memoryState.setCurrentCamera(cam != null ? cam.toString() : "");
+            }
         }
 
         // 2. Faire calculer l'IA (mouvements)
@@ -112,12 +111,16 @@ public class GameController {
         memoryState.getAnimatronics().forEach((name, anim) -> positions.put(name, anim.getCurrentLocation()));
         stateResponse.put("positions", positions);
 
-        // 4. CONDITIONS DE FIN (JUMPSCARE OU VICTOIRE)
+        // Transmettre les événements audio
+        List<String> events = memoryState.consumeEvents();
+        if (!events.isEmpty()) {
+            stateResponse.put("events", events);
+        }
+
+        // 4. CONDITIONS DE FIN
         if (memoryState.isGameOver()) {
             stateResponse.put("status", "JUMPSCARE");
             stateResponse.put("jumpscareAnimatronic", memoryState.getJumpscareAnimatronic());
-            
-            // On nettoie la partie en mémoire
             gameEngine.removeGame(player.getId()); 
             
         } else if (hoursPassed >= TOTAL_NIGHT_HOURS) {
@@ -143,7 +146,6 @@ public class GameController {
             stateResponse.put("newCurrentNight", player.getCurrentNight());
             stateResponse.put("newBestScore", score.getScoreValue());
             
-            // On nettoie la partie en mémoire
             gameEngine.removeGame(player.getId()); 
         }
 
@@ -155,7 +157,6 @@ public class GameController {
         Player player = getPlayerFromToken(authHeader);
         if (player == null) return ResponseEntity.status(401).body("Non autorisé");
 
-        // NOUVEAU : Nettoyer la mémoire s'il quitte ou perd brutalement
         gameEngine.removeGame(player.getId());
 
         Score score = scoreRepository.findById(player.getId()).orElseThrow();
@@ -205,10 +206,15 @@ public class GameController {
         }
     }
 
-@PostMapping("/dev/move")
+    @PostMapping("/dev/move")
     public ResponseEntity<?> devMoveAnimatronic(@RequestHeader("Authorization") String authHeader, @RequestBody Map<String, String> request) {
         Player player = getPlayerFromToken(authHeader);
         if (player == null) return ResponseEntity.status(401).body("Non autorisé");
+
+        // SÉCURITÉ : Seulement Hamza, Nathan, Damien
+        if (!List.of("Hamza", "Nathan", "Damien").contains(player.getUsername())) {
+            return ResponseEntity.status(403).body("Accès refusé. Réservé aux développeurs.");
+        }
 
         GameState memoryState = gameEngine.getGameState(player.getId());
         if (memoryState == null) return ResponseEntity.badRequest().body("Partie non initialisée");
@@ -218,10 +224,51 @@ public class GameController {
         Animatronic anim = memoryState.getAnimatronics().get(animatronicName);
         
         if (anim != null) {
-            // ON PASSE LE MEMORYSTATE ICI
             anim.forceMove("forward".equals(direction), memoryState);
         }
 
         return ResponseEntity.ok(Map.of("message", animatronicName + " moved " + direction));
+    }
+
+    @PostMapping("/dev/set-night")
+    public ResponseEntity<?> devSetNight(@RequestHeader("Authorization") String authHeader, @RequestBody Map<String, Integer> request) {
+        Player player = getPlayerFromToken(authHeader);
+        if (player == null) return ResponseEntity.status(401).body("Non autorisé");
+
+        // SÉCURITÉ : Seulement Hamza, Nathan, Damien
+        if (!List.of("Hamza", "Nathan", "Damien").contains(player.getUsername())) {
+            return ResponseEntity.status(403).body("Accès refusé. Réservé aux développeurs.");
+        }
+
+        int targetNight = request.getOrDefault("night", 1);
+        
+        // On force la nuit du joueur
+        player.setCurrentNight(targetNight);
+        playerRepository.save(player);
+
+        return ResponseEntity.ok(Map.of("message", "Nuit modifiée", "night", targetNight));
+    }
+
+    @PostMapping("/dev/jumpscare")
+    public ResponseEntity<?> devForceJumpscare(@RequestHeader("Authorization") String authHeader, @RequestBody Map<String, String> request) {
+        Player player = getPlayerFromToken(authHeader);
+        if (player == null) return ResponseEntity.status(401).body("Non autorisé");
+
+        // SÉCURITÉ : Seulement Hamza, Nathan, Damien
+        if (!List.of("Hamza", "Nathan", "Damien").contains(player.getUsername())) {
+            return ResponseEntity.status(403).body("Accès refusé. Réservé aux développeurs.");
+        }
+
+        GameState memoryState = gameEngine.getGameState(player.getId());
+        if (memoryState == null) return ResponseEntity.badRequest().body("Partie non initialisée");
+
+        // On récupère le nom de l'animatronique sélectionné
+        String animatronicName = request.getOrDefault("animatronic", "Bluebear"); 
+        
+        // On force immédiatement la fin de la partie avec ce screamer
+        memoryState.setGameOver(true);
+        memoryState.setJumpscareAnimatronic(animatronicName);
+
+        return ResponseEntity.ok(Map.of("message", "Jumpscare forcé pour " + animatronicName));
     }
 }

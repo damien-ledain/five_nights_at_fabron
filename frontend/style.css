@@ -348,7 +348,7 @@ body { background-color: var(--bg-color); color: var(--text-color); font-family:
 }
 
 #intro-image {
-    max-width: 70%;
+    max-width: 100%;
     max-height: 80vh;
     object-fit: contain;
     opacity: 0;
@@ -523,3 +523,22 @@ body { background-color: var(--bg-color); color: var(--text-color); font-family:
     display: block;
     opacity: 1;
 }
+
+/* ========================================================= */
+/* --- JUMPSCARE GOLDEN FABRON (CRASH STYLE) ---             */
+/* ========================================================= */
+#jumpscare-container.golden-active {
+    display: flex;
+    background-color: rgba(0, 0, 0, 0.95); /* Fond presque totalement noir */
+    animation: none; /* Annule les flashs rouges habituels */
+}
+#jumpscare-container.golden-active #jumpscare-img {
+    opacity: 1;
+    transform: scale(1.25); /* Ultra zoomé */
+    filter: brightness(0.6) contrast(200%) sepia(0.3); /* Sombre, contrasté, légèrement doré/vieux */
+    animation: golden-shake 0.05s infinite; /* Tremblement ultra-rapide (effet static) */
+}
+@keyframes golden-shake {
+    0% { transform: scale(1.25) translate(2px, 2px); }
+    50% { transform: scale(1.25) translate(-2px, -2px); }
+    100% { transform: scale(1.25) translate(2px, -2px); }}
