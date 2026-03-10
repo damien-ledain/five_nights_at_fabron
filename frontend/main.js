@@ -781,6 +781,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if(btnDevForward) btnDevForward.addEventListener('click', () => forceMoveAnimatronic('forward'));
     if(btnDevBackward) btnDevBackward.addEventListener('click', () => forceMoveAnimatronic('backward'));
+    // --- RÉ-IMPLÉMENTATION DU BOUTON JUMPSCARE ---
+    if (btnDevJumpscare) {
+        btnDevJumpscare.addEventListener('click', async () => {
+            const animatronicName = devAnimatronicSelect.value;
+            
+            // Si c'est Golden Fabron, c'est uniquement en Frontend
+            if (animatronicName === 'GoldenFabron') {
+                triggerGoldenFabronCrash();
+                return;
+            }
+
+            // Sinon, on demande au serveur
+            const token = localStorage.getItem('fnaf_jwt');
+            try {
+                const response = await fetch('http://localhost:8080/api/game/dev/jumpscare', {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify({ animatronic: animatronicName })
+                });
+                
+                if (response.ok) {
+                    // On force un rafraîchissement pour voir le jumpscare de suite
+                    pollGameState(); 
+                } else {
+                    const errorText = await response.text();
+                    console.error("Erreur serveur jumpscare:", errorText);
+                }
+            } catch (error) { 
+                console.error("Impossible de forcer le jumpscare", error); 
+            }
+        });
+    }
 
     btnTempDie.addEventListener('click', async () => {
         const token = localStorage.getItem('fnaf_jwt');
