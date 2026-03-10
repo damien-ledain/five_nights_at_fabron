@@ -8,8 +8,8 @@ import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,12 +32,17 @@ public class GameController {
     private final PlayerRepository playerRepository;
     private final ScoreRepository scoreRepository;
     private final JwtUtil jwtUtil;
+    
+    // NOUVEAU : Le service qui gère la partie en temps réel (l'IA)
+    private final GameEngineService gameEngine;
 
-    public GameController(GameSessionRepository gameSessionRepository, PlayerRepository playerRepository, ScoreRepository scoreRepository, JwtUtil jwtUtil) {
+    // Ajout de GameEngineService dans le constructeur
+    public GameController(GameSessionRepository gameSessionRepository, PlayerRepository playerRepository, ScoreRepository scoreRepository, JwtUtil jwtUtil, GameEngineService gameEngine) {
         this.gameSessionRepository = gameSessionRepository;
         this.playerRepository = playerRepository;
         this.scoreRepository = scoreRepository;
         this.jwtUtil = jwtUtil;
+        this.gameEngine = gameEngine;
     }
 
     @PostMapping("/start")
@@ -63,32 +68,60 @@ public class GameController {
         session.setStartTime(LocalDateTime.now());
         gameSessionRepository.save(session);
 
+        // NOUVEAU : Initialisation de la partie en mémoire pour les animatroniques
+        gameEngine.initGame(player.getId(), currentNight);
+
         return ResponseEntity.ok(Map.of("message", "Nuit commencée", "night", currentNight));
     }
 
-    @GetMapping("/state")
-    public ResponseEntity<?> getGameState(@RequestHeader("Authorization") String authHeader) {
+    // NOUVEAU : On passe de @GetMapping à @PostMapping pour recevoir l'état des portes
+    @PostMapping("/state")
+    public ResponseEntity<?> syncGameState(@RequestHeader("Authorization") String authHeader, @RequestBody(required = false) Map<String, Boolean> playerActions) {
         Player player = getPlayerFromToken(authHeader);
         if (player == null) return ResponseEntity.status(401).body("Non autorisé");
 
-        List<GameSession> sessions = gameSessionRepository.findByPlayerAndActiveTrue(player);
-        if (sessions.isEmpty()) return ResponseEntity.badRequest().body("Aucune partie en cours");
+        // Récupération de l'état de la partie en mémoire
+        GameState memoryState = gameEngine.getGameState(player.getId());
+        if (memoryState == null) return ResponseEntity.badRequest().body("Partie non initialisée en mémoire");
 
-        // S'il y en a plusieurs, on prend la première de la liste
+        // 1. Mettre à jour l'état des portes envoyé par le front
+        if (playerActions != null) {
+            if (playerActions.containsKey("rightDoorClosed")) memoryState.setRightDoorClosed(playerActions.get("rightDoorClosed"));
+            if (playerActions.containsKey("leftDoorClosed")) memoryState.setLeftDoorClosed(playerActions.get("leftDoorClosed"));
+        }
+
+        // 2. Faire calculer l'IA (mouvements)
+        memoryState.updateAll();
+
+        List<GameSession> sessions = gameSessionRepository.findByPlayerAndActiveTrue(player);
+        if (sessions.isEmpty()) return ResponseEntity.badRequest().body("Aucune partie en base");
+
         GameSession session = sessions.get(0);
         long secondsElapsed = Duration.between(session.getStartTime(), LocalDateTime.now()).getSeconds();
 
         int hoursPassed = (int) (secondsElapsed / SECONDS_PER_HOUR);
         int currentHour = (hoursPassed == 0) ? 12 : hoursPassed;
         
-        Map<String, Object> state = new HashMap<>();
-        state.put("currentHour", currentHour);
-        state.put("nightLevel", session.getNightLevel());
-        state.put("status", "PLAYING");
+        Map<String, Object> stateResponse = new HashMap<>();
+        stateResponse.put("currentHour", currentHour);
+        stateResponse.put("nightLevel", session.getNightLevel());
+        stateResponse.put("status", "PLAYING");
 
-        // CONDITIONS DE VICTOIRE
-        if (hoursPassed >= TOTAL_NIGHT_HOURS) {
-            state.put("status", "WON");
+        // 3. Ajouter les positions des animatroniques pour le Front-end
+        Map<String, String> positions = new HashMap<>();
+        memoryState.getAnimatronics().forEach((name, anim) -> positions.put(name, anim.getCurrentLocation()));
+        stateResponse.put("positions", positions);
+
+        // 4. CONDITIONS DE FIN (JUMPSCARE OU VICTOIRE)
+        if (memoryState.isGameOver()) {
+            stateResponse.put("status", "JUMPSCARE");
+            stateResponse.put("jumpscareAnimatronic", memoryState.getJumpscareAnimatronic());
+            
+            // On nettoie la partie en mémoire
+            gameEngine.removeGame(player.getId()); 
+            
+        } else if (hoursPassed >= TOTAL_NIGHT_HOURS) {
+            stateResponse.put("status", "WON");
             session.setActive(false);
             gameSessionRepository.save(session);
             
@@ -107,11 +140,14 @@ public class GameController {
             }
             scoreRepository.save(score);
             
-            state.put("newCurrentNight", player.getCurrentNight());
-            state.put("newBestScore", score.getScoreValue());
+            stateResponse.put("newCurrentNight", player.getCurrentNight());
+            stateResponse.put("newBestScore", score.getScoreValue());
+            
+            // On nettoie la partie en mémoire
+            gameEngine.removeGame(player.getId()); 
         }
 
-        return ResponseEntity.ok(state);
+        return ResponseEntity.ok(stateResponse);
     }
 
     @PostMapping("/gameover")
@@ -119,11 +155,14 @@ public class GameController {
         Player player = getPlayerFromToken(authHeader);
         if (player == null) return ResponseEntity.status(401).body("Non autorisé");
 
+        // NOUVEAU : Nettoyer la mémoire s'il quitte ou perd brutalement
+        gameEngine.removeGame(player.getId());
+
         Score score = scoreRepository.findById(player.getId()).orElseThrow();
         
         List<GameSession> sessions = gameSessionRepository.findByPlayerAndActiveTrue(player);
         if (!sessions.isEmpty()) {
-            GameSession session = sessions.get(0); // On calcule le score sur la première session trouvée
+            GameSession session = sessions.get(0); 
             
             long secondsElapsed = Duration.between(session.getStartTime(), LocalDateTime.now()).getSeconds();
             int totalNightSeconds = SECONDS_PER_HOUR * TOTAL_NIGHT_HOURS;
@@ -139,14 +178,12 @@ public class GameController {
                 scoreRepository.save(score);
             }
 
-            // On désactive TOUTES les sessions en cours
             for (GameSession s : sessions) {
                 s.setActive(false);
             }
             gameSessionRepository.saveAll(sessions);
         }
 
-        // Remise à zéro de la série après la mort
         player.setCurrentNight(1);
         playerRepository.save(player);
 
@@ -166,5 +203,25 @@ public class GameController {
         } catch (Exception e) {
             return null;
         }
+    }
+
+@PostMapping("/dev/move")
+    public ResponseEntity<?> devMoveAnimatronic(@RequestHeader("Authorization") String authHeader, @RequestBody Map<String, String> request) {
+        Player player = getPlayerFromToken(authHeader);
+        if (player == null) return ResponseEntity.status(401).body("Non autorisé");
+
+        GameState memoryState = gameEngine.getGameState(player.getId());
+        if (memoryState == null) return ResponseEntity.badRequest().body("Partie non initialisée");
+
+        String direction = request.get("direction");
+        String animatronicName = request.getOrDefault("animatronic", "Bluebear"); 
+        Animatronic anim = memoryState.getAnimatronics().get(animatronicName);
+        
+        if (anim != null) {
+            // ON PASSE LE MEMORYSTATE ICI
+            anim.forceMove("forward".equals(direction), memoryState);
+        }
+
+        return ResponseEntity.ok(Map.of("message", animatronicName + " moved " + direction));
     }
 }

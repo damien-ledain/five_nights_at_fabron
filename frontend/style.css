@@ -362,3 +362,164 @@ body { background-color: var(--bg-color); color: var(--text-color); font-family:
     95% { opacity: 1; } /* Reste visible jusqu'à la 19ème seconde */
     100% { opacity: 0; } /* Disparaît à la fin */
 }
+/* ========================================================= */
+/* --- SYSTÈME DE JUMPSCARE AVANCÉ ---                     */
+/* ========================================================= */
+
+/* Le container qui contient l'image transparente */
+#jumpscare-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1001; /* Au-dessus de tout, même des dev tools */
+    display: none; /* Caché par défaut */
+    justify-content: center;
+    align-items: center;
+    pointer-events: none; /* Impossible de cliquer dessus */
+    overflow: hidden;
+}
+
+/* L'image du monstre elle-même */
+#jumpscare-img {
+    height: 100%; /* Prend toute la hauteur pour être impressionnant */
+    opacity: 0;
+}
+
+/* Classe activée en JS quand le jumpscare se déclenche */
+#jumpscare-container.active {
+    display: flex;
+    /* Flashs d'écran rouges et noirs en arrière-plan (au-dessus du bureau) */
+    animation: fnaf-screen-flash 2s ease-out forwards;
+}
+
+#jumpscare-container.active #jumpscare-img {
+    opacity: 1;
+    /* Animation chaotique, zoom, shake, filtres rouges */
+    animation: fnaf-monster-rage 2s ease-out forwards;
+}
+
+/* Animation 1 : Flashs d'écran rapides (Rouge intense / Noir) */
+@keyframes fnaf-screen-flash {
+    0%   { background: rgba(255, 0, 0, 0); }
+    1%   { background: rgba(255, 0, 0, 0.8); } /* Rouge sang instantané */
+    5%   { background: #000; } /* Flash noir */
+    8%   { background: rgba(180, 0, 0, 0.9); }
+    15%  { background: rgba(0, 0, 0, 0.4); } /* On voit légèrement le bureau */
+    20%  { background: rgba(255, 0, 0, 0.8); }
+    25%  { background: #000; }
+    35%  { background: rgba(0, 0, 0, 0); }
+    100% { background: #000; } /* Finit dans le noir complet avant game over */
+}
+
+/* Animation 2 : Mouvements terrifiants de l'image (Shake, Zoom, Saturate) */
+@keyframes fnaf-monster-rage {
+    0% { 
+        transform: scale(1) translate(0, 0); 
+        filter: contrast(100%) brightness(100%) saturate(100%);
+    }
+    /* Zoom agressif immédiat et boost de contraste/saturation rouge */
+    1% { 
+        transform: scale(1.6) translate(10px, -10px); 
+        filter: contrast(300%) brightness(120%) saturate(1000%) drop-shadow(0 0 10px red);
+    }
+    3%  { transform: scale(1.58) translate(-10px, 10px); }
+    5%  { transform: scale(1.7) translate(15px, 0px); }
+    8%  { transform: scale(1.65) translate(-15px, 0px); }
+    12% { transform: scale(1.8) translate(0px, -15px); }
+    16% { transform: scale(1.75) translate(0px, 15px); }
+    /* Zoom encore plus gros à mi-chemin */
+    20% { transform: scale(2.2) translate(5px, 5px); }
+    25% { transform: scale(2.1) translate(-5px, -5px); }
+    30% { transform: scale(2.3) translate(0px, 0px); filter: contrast(300%) saturate(1000%); }
+    35% { transform: scale(2.2) translate(10px, -10px); }
+    40% { transform: scale(2.3) translate(-10px, 10px); }
+    /* Ralentit légèrement avant de disparaître dans le noir */
+    60% { 
+        transform: scale(2.5) translate(0, 0); 
+        filter: contrast(300%) brightness(120%) saturate(1000%) drop-shadow(0 0 15px red);
+        opacity: 1;
+    }
+    90% { transform: scale(2.6); opacity: 1; }
+    100% { 
+        transform: scale(3); 
+        filter: contrast(300%) saturate(1000%);
+        opacity: 0; /* Disparaît dans le blackout du container */
+    }
+}
+
+/* ========================================================= */
+/* --- JUMPSCARE SPÉCIFIQUE POUR REDBEAR (Moins zoomé) ---   */
+/* ========================================================= */
+
+/* Classe spécifique activée en JS pour Redbear */
+#jumpscare-container.redbear-active {
+    display: flex;
+    animation: fnaf-screen-flash 2s ease-out forwards; /* Flashing rouge standard */
+}
+
+/* L'image de Redbear utilise la nouvelle animation */
+#jumpscare-container.redbear-active #jumpscare-img {
+    opacity: 1;
+    /* On applique l'animation redbear-rage définie ci-dessous */
+    animation: redbear-rage 2s ease-out forwards;
+}
+
+/* Animation 2 Spécifique : Mouvements de Redbear (Moins de Zoom) */
+@keyframes redbear-rage {
+    0% { 
+        transform: scale(1) translate(0, 0); 
+        filter: contrast(100%) brightness(100%) saturate(100%);
+    }
+    /* Zoom agressif initial réduit à 1.3 (au lieu de 1.6) */
+    1% { 
+        transform: scale(1.3) translate(10px, -10px); 
+        filter: contrast(250%) brightness(110%) saturate(800%) drop-shadow(0 0 10px red);
+    }
+    /* Tremblements chaotiques maintenus */
+    3%  { transform: scale(1.28) translate(-10px, 10px); }
+    5%  { transform: scale(1.4) translate(15px, 0px); }
+    8%  { transform: scale(1.35) translate(-15px, 0px); }
+    12% { transform: scale(1.5) translate(0px, -15px); }
+    16% { transform: scale(1.45) translate(0px, 15px); }
+    
+    /* Gros zoom à mi-chemin réduit à 1.6 (au lieu de 2.2) */
+    20% { transform: scale(1.6) translate(5px, 5px); }
+    25% { transform: scale(1.55) translate(-5px, -5px); }
+    30% { transform: scale(1.7) translate(0px, 0px); filter: contrast(250%) saturate(800%); }
+    
+    35% { transform: scale(1.65) translate(10px, -10px); }
+    40% { transform: scale(1.7) translate(-10px, 10px); }
+    
+    /* Phase finale : Zoom maximum limité à 1.8 (au lieu de 2.5+) */
+    60% { 
+        transform: scale(1.8) translate(0, 0); 
+        filter: contrast(250%) brightness(110%) saturate(800%) drop-shadow(0 0 15px red);
+        opacity: 1;
+    }
+    90% { transform: scale(1.85); opacity: 1; }
+    100% { 
+        transform: scale(1.9); 
+        filter: contrast(250%) saturate(800%);
+        opacity: 0; /* Disparaît dans le blackout du container */
+    }
+}
+#fade-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: black;
+    z-index: 10000; /* Au-dessus de tout */
+    display: none;
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+    pointer-events: none;
+}
+
+#fade-overlay.visible {
+    display: block;
+    opacity: 1;
+}

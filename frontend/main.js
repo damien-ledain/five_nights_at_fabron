@@ -16,6 +16,10 @@ const cameraFeeds = {
 document.addEventListener('DOMContentLoaded', () => {
 
     const cameraEffects = document.getElementById('camera-effects');
+    
+    // Éléments du système de Jumpscare
+    const jumpscareContainer = document.getElementById('jumpscare-container');
+    const jumpscareImg = document.getElementById('jumpscare-img');
 
     const btnShowLogin = document.getElementById('btn-show-login');
     const btnNewGame = document.getElementById('btn-new-game');
@@ -44,6 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const hoursRoller = document.getElementById('hours-roller');
 
     const btnTempDie = document.getElementById('btn-temp-die');
+    const btnDevForward = document.getElementById('btn-dev-forward');
+    const btnDevBackward = document.getElementById('btn-dev-backward');
+    const devAnimatronicSelect = document.getElementById('dev-animatronic-select');
     const btnReturnMenuGo = document.getElementById('btn-return-menu-go');
 
     const inGameHour = document.getElementById('in-game-hour');
@@ -69,8 +76,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const temperatureUI = document.getElementById('temperature-ui');
     const tempBarFill = document.getElementById('temp-bar-fill');
     const tempPercentage = document.getElementById('temp-percentage');
-
+const fadeOverlay = document.getElementById('fade-overlay');
     let gameInterval;
+    // On initialise les positions au spawn
+    let currentPositions = { "Bluebear": "ext_03", "Redbear": "ext_03" };
     let serverDoorInterval;
     let tempInterval;
     let currentCameraId = 'int_01';
@@ -94,17 +103,47 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateOfficeView() {
         if (isBlackout) return;
 
+        // Bluebear est à DROITE, Redbear est à GAUCHE
+        let bbAtDoor = (currentPositions["Bluebear"] === 'porte_droite');
+        let rbAtDoor = (currentPositions["Redbear"] === 'porte_gauche');
+
         if (inWindowView) {
             mainViewImg.src = isWindowClosed ? 'img/office/window/window_closed.webp' : 'img/office/window/window_open.webp';
         } else {
+            // 1. LES DEUX PORTES FERMÉES
             if (isLeftDoorClosed && isRightDoorClosed) {
                 mainViewImg.src = 'img/office/desk/desk_closed.webp';
-            } else if (isLeftDoorClosed) {
-                mainViewImg.src = 'img/office/desk/desk_left_closed.webp';
-            } else if (isRightDoorClosed) {
-                mainViewImg.src = 'img/office/desk/desk_right_closed.webp';
-            } else {
-                mainViewImg.src = 'img/office/desk/desk_open.png';
+            } 
+            
+            // 2. SEULEMENT PORTE GAUCHE FERMÉE
+            else if (isLeftDoorClosed) {
+                if (bbAtDoor) {
+                    mainViewImg.src = 'img/office/desk/desk_left_closed_bluebear_right.webp'; // NOUVEAU
+                } else {
+                    mainViewImg.src = 'img/office/desk/desk_left_closed.webp';
+                }
+            } 
+            
+            // 3. SEULEMENT PORTE DROITE FERMÉE
+            else if (isRightDoorClosed) {
+                if (rbAtDoor) {
+                    mainViewImg.src = 'img/office/desk/desk_right_closed_redbear_left.webp'; // NOUVEAU
+                } else {
+                    mainViewImg.src = 'img/office/desk/desk_right_closed.webp';
+                }
+            } 
+            
+            // 4. LES DEUX PORTES OUVERTES
+            else {
+                if (bbAtDoor && rbAtDoor) {
+                    mainViewImg.src = 'img/office/desk/desk_open_redbear_left_bluebear_right.webp';
+                } else if (bbAtDoor) {
+                    mainViewImg.src = 'img/office/desk/desk_open_bluebear_right.webp';
+                } else if (rbAtDoor) {
+                    mainViewImg.src = 'img/office/desk/desk_open_redbear_left.webp';
+                } else {
+                    mainViewImg.src = 'img/office/desk/desk_open.png';
+                }
             }
         }
     }
@@ -133,8 +172,60 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // =========================================================
-    // --- LOGIQUE CAMÉRAS ---
+    // --- LOGIQUE CAMÉRAS DYNAMIQUE INSTANTANÉE ---
     // =========================================================
+
+    function getCameraImageSrc(camId) {
+        let bbLoc = currentPositions["Bluebear"];
+        let rbLoc = currentPositions["Redbear"];
+
+        // Logique spécifique pour le Spawn (EXT 03)
+        if (camId === 'ext_03') {
+            if (bbLoc === 'ext_03' && rbLoc === 'ext_03') {
+                return 'img/cameras/ext_03/cam_ext_03_full.webp'; 
+            } else if (rbLoc === 'ext_03') {
+                return 'img/cameras/ext_03/cam_ext_03_bluebear_out.webp'; // BB est sorti
+            } else if (bbLoc === 'ext_03') {
+                return 'img/cameras/ext_03/cam_ext_03_redbear_out.webp'; // RB est sorti (théoriquement impossible au début)
+            } else {
+                return 'img/cameras/ext_03/cam_ext_03_empty.webp'; // Les deux sont partis
+            }
+        } 
+        
+        // Logique quand ils peuvent se croiser ou se pousser
+        // On affiche celui qui est sur la cam. Si les deux y sont (poussée), on affiche le dernier arrivé (ici Redbear)
+        if (rbLoc === camId) return `img/cameras/${camId}/cam_${camId}_redbear.webp`;
+        if (bbLoc === camId) return `img/cameras/${camId}/cam_${camId}_bluebear.webp`;
+        
+        return cameraFeeds[camId] || '';
+    }
+
+    function updateCameraFeed(camId) {
+        currentCameraId = camId; 
+        
+        camTransition.classList.remove('hidden');
+        camBtns.forEach(b => b.classList.remove('active'));
+        const activeBtn = document.querySelector(`.cam-btn[data-cam="${camId}"]`);
+        if(activeBtn) activeBtn.classList.add('active');
+
+        if (camId === 'int_01') {
+            btnOpenServer.classList.remove('hidden');
+            if (isServerDoorOpen) {
+                camFeedImg.src = 'img/cameras/int_01/cam_int_01_open.webp';
+                btnOpenServer.classList.add('disabled'); 
+            } else {
+                camFeedImg.src = 'img/cameras/int_01/cam_int_01_empty.webp'; 
+                btnOpenServer.classList.remove('disabled'); 
+            }
+        } else {
+            btnOpenServer.classList.add('hidden');
+            camFeedImg.src = getCameraImageSrc(camId);
+        }
+
+        setTimeout(() => {
+            camTransition.classList.add('hidden');
+        }, 150); 
+    }
 
     btnCamera.addEventListener('click', () => {
         if (isBlackout) return;
@@ -164,35 +255,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    function updateCameraFeed(camId) {
-        currentCameraId = camId; 
-        
-        // 1. Affiche l'effet VHS
-        camTransition.classList.remove('hidden');
-        camBtns.forEach(b => b.classList.remove('active'));
-        document.querySelector(`.cam-btn[data-cam="${camId}"]`).classList.add('active');
-
-        // 2. Met à jour l'image IMMÉDIATEMENT (plus de flash temporel d'ancienne porte)
-        if (camId === 'int_01') {
-            btnOpenServer.classList.remove('hidden');
-            if (isServerDoorOpen) {
-                camFeedImg.src = 'img/cameras/int_01/cam_int_01_open.webp';
-                btnOpenServer.classList.add('disabled'); 
-            } else {
-                camFeedImg.src = 'img/cameras/int_01/cam_int_01_empty.webp'; 
-                btnOpenServer.classList.remove('disabled'); 
-            }
-        } else {
-            btnOpenServer.classList.add('hidden');
-            if (cameraFeeds[camId]) camFeedImg.src = cameraFeeds[camId];
-        }
-
-        // 3. Cache l'effet VHS après 150ms
-        setTimeout(() => {
-            camTransition.classList.add('hidden');
-        }, 150); 
-    }
-
     btnOpenServer.addEventListener('click', () => {
         if (!isServerDoorOpen && !isBlackout) {
             isServerDoorOpen = true;
@@ -200,6 +262,28 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentCameraId === 'int_01') camFeedImg.src = 'img/cameras/int_01/cam_int_01_open.webp';
         }
     });
+
+    // =========================================================
+    // --- GESTION DES LIMITES DES BOUTONS DEV ---
+    // =========================================================
+
+    function updateDevButtonsState() {
+        const animatronicName = devAnimatronicSelect.value;
+        const pos = currentPositions[animatronicName];
+
+        const isAtSpawn = (pos === 'ext_03');
+        const isAtDoor = (pos === 'porte_droite' || pos === 'porte_gauche');
+
+        btnDevBackward.disabled = isAtSpawn;
+        btnDevBackward.style.opacity = isAtSpawn ? '0.3' : '1';
+        btnDevBackward.style.cursor = isAtSpawn ? 'not-allowed' : 'pointer';
+
+        btnDevForward.disabled = isAtDoor;
+        btnDevForward.style.opacity = isAtDoor ? '0.3' : '1';
+        btnDevForward.style.cursor = isAtDoor ? 'not-allowed' : 'pointer';
+    }
+
+    if(devAnimatronicSelect) devAnimatronicSelect.addEventListener('change', updateDevButtonsState);
 
     // =========================================================
     // --- LOGIQUE DE TEMPÉRATURE ET BLACKOUT ---
@@ -213,9 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cameraSystem.classList.add('hidden');      
         cameraEffects.classList.add('hidden');
         
-        // Cache la jauge
         temperatureUI.classList.add('hidden');
-        
         mainViewImg.src = 'img/office/desk/desk_blackout.webp';
         
         officeControls.classList.add('hidden');
@@ -248,7 +330,6 @@ document.addEventListener('DOMContentLoaded', () => {
             triggerBlackout();
         }
 
-        // MAJ de la barre et du pourcentage texte
         tempBarFill.style.width = currentTemperature + '%';
         tempPercentage.textContent = Math.floor(currentTemperature) + '%';
     }
@@ -263,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnLeaderboard.addEventListener('click', () => { leaderboardModal.classList.remove('hidden'); fetchLeaderboard(); });
     btnCloseLeaderboard.addEventListener('click', () => leaderboardModal.classList.add('hidden'));
 
-   let introTimeout; // Permet d'annuler le timer si on clique sur "Passer"
+    let introTimeout; 
 
     btnNewGame.addEventListener('click', async () => {
         const token = localStorage.getItem('fnaf_jwt');
@@ -283,41 +364,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 titleScreen.classList.add('hidden');
 
-                // --- LOGIQUE D'INTRODUCTION ---
                 if (activeNightLevel === 1) {
                     const introScreen = document.getElementById('intro-screen');
                     const introImage = document.getElementById('intro-image');
                     const btnSkipIntro = document.getElementById('btn-skip-intro');
                     
                     introScreen.classList.remove('hidden');
-
-                    // Petite astuce pour relancer l'animation CSS si on meurt Nuit 1 et qu'on recommence
                     introImage.style.animation = 'none';
                     introImage.offsetHeight; 
                     introImage.style.animation = null;
 
                     const skipIntro = () => {
-                        clearTimeout(introTimeout); // Stoppe le chrono de 10s
+                        clearTimeout(introTimeout);
                         introScreen.classList.add('hidden');
                         btnSkipIntro.removeEventListener('click', skipIntro);
-                        launchGameCore(); // Lance vraiment le jeu
+                        launchGameCore();
                     };
 
                     btnSkipIntro.addEventListener('click', skipIntro);
-                    introTimeout = setTimeout(skipIntro, 20000); // Passe au jeu après 20s
+                    introTimeout = setTimeout(skipIntro, 20000);
                 } else {
-                    // Si on est Nuit 2 ou +, on lance le jeu directement sans l'article
                     launchGameCore();
                 }
             }
         } catch (error) { console.error("Impossible de lancer la partie", error); }
     });
 
-    // Fonction qui s'occupe de réinitialiser le bureau et lancer les chronos
     function launchGameCore() {
         gameScreen.classList.remove('hidden');
         
-        // --- RÉINITIALISATION ---
         isLeftDoorClosed = false;
         isRightDoorClosed = false;
         isWindowClosed = false;
@@ -340,7 +415,9 @@ document.addEventListener('DOMContentLoaded', () => {
         windowZone.classList.add('hidden');
         
         currentCameraId = 'int_01'; 
+        currentPositions = { "Bluebear": "ext_03", "Redbear": "ext_03" };
         updateOfficeView();
+        updateDevButtonsState();
 
         if (gameInterval) clearInterval(gameInterval);
         gameInterval = setInterval(pollGameState, 1000);
@@ -364,13 +441,86 @@ document.addEventListener('DOMContentLoaded', () => {
         const token = localStorage.getItem('fnaf_jwt');
         try {
             const response = await fetch('http://localhost:8080/api/game/state', {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${token}` }
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({
+                    rightDoorClosed: isRightDoorClosed,
+                    leftDoorClosed: isLeftDoorClosed
+                })
             });
 
             if (response.ok) {
                 const state = await response.json();
                 inGameHour.textContent = state.currentHour;
+
+                if (state.positions) {
+                    let oldBBPos = currentPositions["Bluebear"];
+                    let oldRBPos = currentPositions["Redbear"];
+                    
+                    currentPositions = state.positions;
+                    
+                    updateDevButtonsState();
+                    
+                    if (!cameraSystem.classList.contains('hidden') && currentCameraId !== 'int_01') {
+                        camFeedImg.src = getCameraImageSrc(currentCameraId);
+                    }
+                    else if (cameraSystem.classList.contains('hidden')) {
+                        // Si l'un des deux a bougé, on rafraîchit le bureau
+                        if (oldBBPos !== currentPositions["Bluebear"] || oldRBPos !== currentPositions["Redbear"]) {
+                            updateOfficeView();
+                        }
+                    }
+                }
+
+                const staticTransition = document.getElementById('static-transition');
+
+if (state.status === "JUMPSCARE") {
+    clearInterval(gameInterval);
+    if (serverDoorInterval) clearInterval(serverDoorInterval);
+    if (tempInterval) clearInterval(tempInterval);
+
+    const attacker = state.jumpscareAnimatronic;
+    jumpscareImg.src = `img/jumpscares/jumpscare_${attacker.toLowerCase()}.png`;
+    
+    // 1. Lancement du Screamer
+    const animClass = (attacker === "Redbear") ? 'redbear-active' : 'active';
+    jumpscareContainer.classList.add(animClass);
+    
+    // 2. Transition : On coupe le screamer avec un écran noir brutal
+    setTimeout(() => {
+        // Affichage instantané du noir
+        fadeOverlay.style.transition = "none";
+        fadeOverlay.classList.add('visible');
+
+        setTimeout(() => {
+            // 3. PENDANT que c'est noir, on change l'écran en dessous
+            jumpscareContainer.classList.remove('active', 'redbear-active');
+            cameraSystem.classList.add('hidden');
+            cameraEffects.classList.add('hidden');
+
+            // On switch sur le Game Over (le changement est invisible car c'est noir)
+            btnTempDie.click(); 
+
+            // 4. On attend un petit instant que le Game Over soit chargé
+            setTimeout(() => {
+                // 5. On fait réapparaître l'écran (Fade In du Game Over)
+                fadeOverlay.style.transition = "opacity 1.5s ease-in-out";
+                fadeOverlay.style.opacity = "0";
+
+                setTimeout(() => {
+                    fadeOverlay.classList.remove('visible');
+                    fadeOverlay.style.opacity = "1"; // Reset pour la prochaine fois
+                }, 1500);
+            }, 500); // Temps de pause dans le noir total
+
+        }, 100); 
+    }, 2000); // On laisse le screamer 2 secondes entières
+    
+    return;
+}
 
                 if (state.status === "WON") {
                     clearInterval(gameInterval);
@@ -410,6 +560,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) { console.error("Erreur de synchronisation", error); }
     }
+
+    // --- LOGIQUE BOUTONS DEV ---
+    async function forceMoveAnimatronic(direction) {
+        const token = localStorage.getItem('fnaf_jwt');
+        const animatronicName = devAnimatronicSelect.value;
+        try {
+            await fetch('http://localhost:8080/api/game/dev/move', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({ 
+                    direction: direction,
+                    animatronic: animatronicName
+                })
+            });
+            pollGameState();
+        } catch (error) { console.error("Impossible de forcer le mouvement", error); }
+    }
+
+    if(btnDevForward) btnDevForward.addEventListener('click', () => forceMoveAnimatronic('forward'));
+    if(btnDevBackward) btnDevBackward.addEventListener('click', () => forceMoveAnimatronic('backward'));
 
     btnTempDie.addEventListener('click', async () => {
         const token = localStorage.getItem('fnaf_jwt');
