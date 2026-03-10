@@ -2,11 +2,11 @@
 const cameraFeeds = {
     'ext_01': 'img/cameras/ext_01/cam_ext_01_empty.webp',
     'ext_02': 'img/cameras/ext_02/cam_ext_02_empty.webp',
-    'ext_03': 'img/cameras/ext_03/cam_ext_03_full.webp', // Image par défaut pour EXT_03
-    'int_01': 'img/cameras/int_01/cam_int_01_open.webp', // Image par défaut pour INT_01
+    'ext_03': 'img/cameras/ext_03/cam_ext_03_full.webp',
+    'int_01': 'img/cameras/int_01/cam_int_01_open.webp',
     'int_02': 'img/cameras/int_02/cam_int_02_empty.webp',
     'int_03': 'img/cameras/int_03/cam_int_03_empty.webp',
-    'int_04': 'img/cameras/int_04/cam_int_04.webp',      // Image unique pour INT_04
+    'int_04': 'img/cameras/int_04/cam_int_04.webp',      
     'int_05': 'img/cameras/int_05/cam_int_05_empty.webp',
     'esc_01': 'img/cameras/esc_01/cam_esc_01_empty.webp',
     'esc_02': 'img/cameras/esc_02/cam_esc_02_empty.webp',
@@ -17,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const cameraEffects = document.getElementById('camera-effects');
 
-    // Éléments du Menu
     const btnShowLogin = document.getElementById('btn-show-login');
     const btnNewGame = document.getElementById('btn-new-game');
     const btnNewGameText = document.getElementById('btn-new-game-text');
@@ -38,7 +37,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCloseLeaderboard = document.getElementById('btn-close-leaderboard');
     const scoreBody = document.getElementById('score-body');
 
-    // Écrans
     const titleScreen = document.getElementById('title-screen');
     const gameScreen = document.getElementById('game-screen');
     const gameOverScreen = document.getElementById('game-over-screen');
@@ -51,65 +49,213 @@ document.addEventListener('DOMContentLoaded', () => {
     const inGameHour = document.getElementById('in-game-hour');
     const inGameNight = document.getElementById('in-game-night');
     
-    // --- ÉLÉMENTS DU SYSTÈME DE CAMÉRAS ---
+    // --- ÉLÉMENTS DU SYSTÈME DE JEU ---
+    const mainViewImg = document.getElementById('main-view-img');
     const cameraSystem = document.getElementById('camera-system');
     const btnCamera = document.getElementById('btn-camera'); 
+    const btnWindow = document.getElementById('btn-window'); 
     const btnCloseCamera = document.getElementById('btn-close-camera'); 
+    const btnOpenServer = document.getElementById('btn-open-server');
     const officeControls = document.getElementById('office-controls');
     const camFeedImg = document.getElementById('cam-feed-img');
     const camBtns = document.querySelectorAll('.cam-btn');
+    const camTransition = document.getElementById('cam-transition');
+
+    const doorLeftZone = document.getElementById('door-left-zone');
+    const doorRightZone = document.getElementById('door-right-zone');
+    const windowZone = document.getElementById('window-zone');
+    
+    // UI TEMPÉRATURE
+    const temperatureUI = document.getElementById('temperature-ui');
+    const tempBarFill = document.getElementById('temp-bar-fill');
+    const tempPercentage = document.getElementById('temp-percentage');
 
     let gameInterval;
-    let currentCameraId = 'int_01'; // La caméra sélectionnée par défaut
+    let serverDoorInterval;
+    let tempInterval;
+    let currentCameraId = 'int_01';
+    let activeNightLevel = 1;
+
+    // --- VARIABLES D'ÉTAT ---
+    let isLeftDoorClosed = false;
+    let isRightDoorClosed = false;
+    let isWindowClosed = false;
+    let inWindowView = false;
+    let isServerDoorOpen = true; 
+    let isBlackout = false;
+    let currentTemperature = 0;
 
     checkAuthStatus();
 
-    // --- LOGIQUE D'OUVERTURE / FERMETURE INSTANTANÉE DES CAMÉRAS ---
+    // =========================================================
+    // --- LOGIQUE DES PORTES ET FENÊTRES ---
+    // =========================================================
 
-    // 1. Clic sur le bouton rouge "Caméras" (SANS ANIMATION)
+    function updateOfficeView() {
+        if (isBlackout) return;
+
+        if (inWindowView) {
+            mainViewImg.src = isWindowClosed ? 'img/office/window/window_closed.webp' : 'img/office/window/window_open.webp';
+        } else {
+            if (isLeftDoorClosed && isRightDoorClosed) {
+                mainViewImg.src = 'img/office/desk/desk_closed.webp';
+            } else if (isLeftDoorClosed) {
+                mainViewImg.src = 'img/office/desk/desk_left_closed.webp';
+            } else if (isRightDoorClosed) {
+                mainViewImg.src = 'img/office/desk/desk_right_closed.webp';
+            } else {
+                mainViewImg.src = 'img/office/desk/desk_open.png';
+            }
+        }
+    }
+
+    doorLeftZone.addEventListener('click', () => { if(!isBlackout) { isLeftDoorClosed = !isLeftDoorClosed; updateOfficeView(); } });
+    doorRightZone.addEventListener('click', () => { if(!isBlackout) { isRightDoorClosed = !isRightDoorClosed; updateOfficeView(); } });
+    windowZone.addEventListener('click', () => { if(!isBlackout) { isWindowClosed = !isWindowClosed; updateOfficeView(); } });
+
+    btnWindow.addEventListener('click', () => {
+        if (isBlackout) return;
+        inWindowView = !inWindowView;
+        if (inWindowView) {
+            btnWindow.textContent = "Bureau";
+            btnCamera.classList.add('hidden'); 
+            doorLeftZone.classList.add('hidden');
+            doorRightZone.classList.add('hidden');
+            windowZone.classList.remove('hidden');
+        } else {
+            btnWindow.textContent = "Fenêtre";
+            btnCamera.classList.remove('hidden');
+            doorLeftZone.classList.remove('hidden');
+            doorRightZone.classList.remove('hidden');
+            windowZone.classList.add('hidden');
+        }
+        updateOfficeView();
+    });
+
+    // =========================================================
+    // --- LOGIQUE CAMÉRAS ---
+    // =========================================================
+
     btnCamera.addEventListener('click', () => {
-        officeControls.classList.add('hidden');   // Cache les boutons du bureau
-        cameraSystem.classList.remove('hidden');  // Montre l'écran caméras INSTANTANÉMENT
-        cameraEffects.classList.remove('hidden'); // Active le bruit blanc
-        
-        // Met l'image de la dernière caméra regardée (ou int_01 par défaut)
+        if (isBlackout) return;
+        officeControls.classList.add('hidden');
+        doorLeftZone.classList.add('hidden');
+        doorRightZone.classList.add('hidden');
+        cameraSystem.classList.remove('hidden');
+        cameraEffects.classList.remove('hidden');
         updateCameraFeed(currentCameraId);
     });
 
-    // 2. Clic sur le bouton "Fermer Caméras" (SANS ANIMATION)
     btnCloseCamera.addEventListener('click', () => {
-        cameraSystem.classList.add('hidden');      // Cache le plan et l'image de cam
-        cameraEffects.classList.add('hidden');     // Enlève le bruit blanc
-        officeControls.classList.remove('hidden'); // Réaffiche les boutons du bureau INSTANTANÉMENT
+        cameraSystem.classList.add('hidden');      
+        cameraEffects.classList.add('hidden');     
+        officeControls.classList.remove('hidden'); 
+        doorLeftZone.classList.remove('hidden');
+        doorRightZone.classList.remove('hidden');
     });
 
-    // 3. Clic sur une caméra dans le plan
     camBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
+            if (isBlackout) return;
             const selectedCam = e.currentTarget.getAttribute('data-cam');
-            updateCameraFeed(selectedCam);
+            if(selectedCam !== currentCameraId) {
+                updateCameraFeed(selectedCam);
+            }
         });
     });
 
-    // Fonction de mise à jour de l'image
     function updateCameraFeed(camId) {
-        currentCameraId = camId; // Mémorise la caméra
+        currentCameraId = camId; 
         
-        if (cameraFeeds[camId]) {
-            camFeedImg.src = cameraFeeds[camId];
-        } else {
-            console.error("L'image n'existe pas dans le dictionnaire pour :", camId);
-        }
-        
-        // Change la couleur des boutons sur le plan
+        // 1. Affiche l'effet VHS
+        camTransition.classList.remove('hidden');
         camBtns.forEach(b => b.classList.remove('active'));
         document.querySelector(`.cam-btn[data-cam="${camId}"]`).classList.add('active');
+
+        // 2. Met à jour l'image IMMÉDIATEMENT (plus de flash temporel d'ancienne porte)
+        if (camId === 'int_01') {
+            btnOpenServer.classList.remove('hidden');
+            if (isServerDoorOpen) {
+                camFeedImg.src = 'img/cameras/int_01/cam_int_01_open.webp';
+                btnOpenServer.classList.add('disabled'); 
+            } else {
+                camFeedImg.src = 'img/cameras/int_01/cam_int_01_empty.webp'; 
+                btnOpenServer.classList.remove('disabled'); 
+            }
+        } else {
+            btnOpenServer.classList.add('hidden');
+            if (cameraFeeds[camId]) camFeedImg.src = cameraFeeds[camId];
+        }
+
+        // 3. Cache l'effet VHS après 150ms
+        setTimeout(() => {
+            camTransition.classList.add('hidden');
+        }, 150); 
     }
 
-    // --- FIN LOGIQUE CAMÉRAS ---
+    btnOpenServer.addEventListener('click', () => {
+        if (!isServerDoorOpen && !isBlackout) {
+            isServerDoorOpen = true;
+            btnOpenServer.classList.add('disabled');
+            if (currentCameraId === 'int_01') camFeedImg.src = 'img/cameras/int_01/cam_int_01_open.webp';
+        }
+    });
 
+    // =========================================================
+    // --- LOGIQUE DE TEMPÉRATURE ET BLACKOUT ---
+    // =========================================================
 
+    function triggerBlackout() {
+        if (isBlackout) return;
+        isBlackout = true;
+        
+        inWindowView = false;
+        cameraSystem.classList.add('hidden');      
+        cameraEffects.classList.add('hidden');
+        
+        // Cache la jauge
+        temperatureUI.classList.add('hidden');
+        
+        mainViewImg.src = 'img/office/desk/desk_blackout.webp';
+        
+        officeControls.classList.add('hidden');
+        doorLeftZone.classList.add('hidden');
+        doorRightZone.classList.add('hidden');
+        windowZone.classList.add('hidden');
+    }
+
+    function calculateTemperature() {
+        if (isBlackout) return; 
+
+        let heatDelta = -2.0; 
+        
+        if (isWindowClosed) heatDelta += 3.5;
+        if (!isServerDoorOpen) heatDelta += 2.5;
+        if (isLeftDoorClosed) heatDelta += 1.25;
+        if (isRightDoorClosed) heatDelta += 1.25;
+        if (!cameraSystem.classList.contains('hidden')) heatDelta += 1.0;
+
+        if (heatDelta > 0) {
+            let difficultyMultiplier = 1 + ((Math.min(activeNightLevel, 10) - 1) * 0.15);
+            heatDelta *= difficultyMultiplier;
+        }
+
+        currentTemperature += heatDelta;
+
+        if (currentTemperature < 0) currentTemperature = 0;
+        if (currentTemperature >= 100) {
+            currentTemperature = 100;
+            triggerBlackout();
+        }
+
+        // MAJ de la barre et du pourcentage texte
+        tempBarFill.style.width = currentTemperature + '%';
+        tempPercentage.textContent = Math.floor(currentTemperature) + '%';
+    }
+
+    // =========================================================
     // --- LOGIQUE MENUS ET AUTHENTIFICATION ---
+    // =========================================================
 
     btnShowLogin.addEventListener('click', () => { authModal.classList.remove('hidden'); authMessage.textContent = ''; });
     btnCloseAuth.addEventListener('click', () => authModal.classList.add('hidden'));
@@ -131,18 +277,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
                 inGameNight.textContent = data.night;
                 inGameHour.textContent = "12";
+                activeNightLevel = data.night; 
                 
                 titleScreen.classList.add('hidden');
                 gameScreen.classList.remove('hidden');
                 
-                // Bureau propre
-                cameraSystem.classList.add('hidden'); // Sécurité
+                // --- RÉINITIALISATION ---
+                isLeftDoorClosed = false;
+                isRightDoorClosed = false;
+                isWindowClosed = false;
+                inWindowView = false;
+                isServerDoorOpen = true; 
+                isBlackout = false;
+                
+                // Température UI (montrer au démarrage)
+                currentTemperature = 0;
+                tempBarFill.style.width = '0%';
+                tempPercentage.textContent = '0%';
+                temperatureUI.classList.remove('hidden');
+                
+                btnWindow.textContent = "Fenêtre";
+                
+                cameraSystem.classList.add('hidden'); 
                 cameraEffects.classList.add('hidden'); 
                 officeControls.classList.remove('hidden');
-                currentCameraId = 'int_01'; // Réinitialise la caméra à chaque nouvelle partie !
+                doorLeftZone.classList.remove('hidden');
+                doorRightZone.classList.remove('hidden');
+                windowZone.classList.add('hidden');
+                
+                currentCameraId = 'int_01'; 
+                updateOfficeView();
 
                 if (gameInterval) clearInterval(gameInterval);
                 gameInterval = setInterval(pollGameState, 1000);
+
+                if (tempInterval) clearInterval(tempInterval);
+                tempInterval = setInterval(calculateTemperature, 1000); 
+
+                if (serverDoorInterval) clearInterval(serverDoorInterval);
+                serverDoorInterval = setInterval(() => {
+                    if (isServerDoorOpen && !isBlackout && Math.random() < 0.4) {
+                        isServerDoorOpen = false;
+                        if (currentCameraId === 'int_01' && !cameraSystem.classList.contains('hidden')) {
+                            camFeedImg.src = 'img/cameras/int_01/cam_int_01_empty.webp';
+                            btnOpenServer.classList.remove('disabled');
+                        }
+                    }
+                }, 3000);
             }
         } catch (error) { console.error("Impossible de lancer la partie", error); }
     });
@@ -161,8 +342,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (state.status === "WON") {
                     clearInterval(gameInterval);
+                    if (serverDoorInterval) clearInterval(serverDoorInterval); 
+                    if (tempInterval) clearInterval(tempInterval); 
+                    
                     gameScreen.classList.add('hidden');
                     cameraSystem.classList.add('hidden'); 
+                    temperatureUI.classList.add('hidden');
                     victoryScreen.classList.remove('hidden');
                     
                     hoursRoller.style.transition = 'none';
@@ -185,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     setTimeout(() => {
                         victoryScreen.classList.add('hidden');
                         titleScreen.classList.remove('hidden');
-                        cameraEffects.classList.remove('hidden'); // Le bruit revient sur le menu
+                        cameraEffects.classList.remove('hidden'); 
                         checkAuthStatus();
                         fetchLeaderboard();
                     }, 6000);
@@ -205,6 +390,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 const data = await response.json();
                 clearInterval(gameInterval);
+                if (serverDoorInterval) clearInterval(serverDoorInterval); 
+                if (tempInterval) clearInterval(tempInterval); 
                 
                 const userDataStr = localStorage.getItem('fnaf_user');
                 if (userDataStr) {
@@ -216,6 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 gameScreen.classList.add('hidden');
                 cameraSystem.classList.add('hidden');
+                temperatureUI.classList.add('hidden');
                 gameOverScreen.classList.remove('hidden');
             }
         } catch (error) { console.error("Impossible de mourir", error); }
@@ -224,7 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnReturnMenuGo.addEventListener('click', () => {
         gameOverScreen.classList.add('hidden');
         titleScreen.classList.remove('hidden');
-        cameraEffects.classList.remove('hidden'); // Le bruit revient sur le menu
+        cameraEffects.classList.remove('hidden'); 
         checkAuthStatus();
         fetchLeaderboard(); 
     });

@@ -70,22 +70,22 @@ body { background-color: var(--bg-color); color: var(--text-color); font-family:
 
 
 /* ========================================================= */
-/* --- ÉCRAN BUREAU & CAMERA (LES CORRECTIONS SONT LÀ) ---   */
+/* --- ÉCRAN BUREAU & CAMERA ---                             */
 /* ========================================================= */
 
 #game-screen { 
     position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background-color: black; 
-    z-index: 40; /* En bas */
+    z-index: 40;
 }
 
 #camera-system { 
     position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background-color: black; 
-    z-index: 45; /* Au-dessus du bureau ! */
+    z-index: 45;
 }
 
 .office-bg { width: 100%; height: 100%; object-fit: contain; background-color: black; }
 
-/* Heure / Nuit (z-index 50 : Toujours visible) */
+/* Heure / Nuit */
 .hud-top-right { position: absolute; top: 20px; right: 40px; text-align: right; z-index: 50; }
 .hud-time { font-size: 5rem; font-weight: bold; text-shadow: 2px 2px 5px black; }
 .hud-night { font-size: 2.5rem; color: #cccccc; text-shadow: 1px 1px 3px black; }
@@ -112,7 +112,7 @@ body { background-color: var(--bg-color); color: var(--text-color); font-family:
 
 /* --- MINIMAP (Le Plan de l'IUT) --- */
 #minimap {
-    position: absolute; bottom: 50px; right: 50px; width: 500px; height: 350px;
+    position: absolute; bottom: 50px; right: 50px; width: 560px; height: 400px;
     border: 3px solid white; background-color: rgba(0, 0, 0, 0.6); z-index: 60;
     box-shadow: 0 0 15px rgba(255,255,255,0.2);
 }
@@ -122,23 +122,211 @@ body { background-color: var(--bg-color); color: var(--text-color); font-family:
     position: relative; width: 100%; height: 85%;
 }
 
+/* Cadres des pièces/étages */
+.room-box {
+    border: 2px solid white;
+    position: absolute;
+    z-index: 1; 
+}
+
+/* Lignes verticales de séparation */
+.room-divider {
+    position: absolute;
+    border-left: 2px solid white;
+    z-index: 1;
+}
+
+/* Étiquettes de texte pour les pièces */
+.room-label {
+    position: absolute;
+    color: white;
+    font-family: var(--font-main);
+    font-size: 1.2rem;
+    text-align: center;
+    z-index: 1;
+}
+
 .cam-btn { 
     position: absolute; background-color: #333; border: 2px solid white; 
     color: white; font-family: var(--font-main); font-size: 1.1rem; 
     padding: 6px 8px; cursor: pointer; transition: 0.1s; text-align: center;
+    z-index: 2; 
 }
 .cam-btn:hover { background-color: #666; }
 .cam-btn.active { background-color: #fff; color: #000; font-weight: bold; }
 
-/* Placements exacts calculés d'après ton plan */
-#pos-ext1 { left: 2%; top: 40%; }     /* Fenêtre du bureau à gauche */
-#pos-int1 { left: 20%; top: 25%; }    /* Porte Serveurs */
-#pos-int2 { left: 20%; top: 55%; }    /* Couloir juste devant bureau */
-#pos-esc1 { left: 30%; top: 5%; }     /* Escalier 1 (Haut) */
-#pos-esc2 { left: 30%; top: 80%; }    /* Escalier 2 (Bas) */
-#pos-int3 { left: 45%; top: 40%; }    /* 2ème Etage (Milieu) */
-#pos-esc3 { left: 55%; top: 80%; }    /* Escalier 3 (Bas milieu) */
-#pos-int4 { left: 65%; top: 40%; }    /* 1er Etage */
-#pos-int5 { left: 85%; top: 30%; }    /* Rez-de-chaussée */
-#pos-ext2 { left: 85%; top: 65%; }    /* Extérieur / Escalier menant au CROUS */
-#pos-ext3 { left: 45%; top: 90%; }    /* Bâtiment CROUS (En bas) */
+/* Placements mis à jour des caméras (bâtiment principal remonté) */
+#pos-ext1 { left: 3%; top: 37%; }     
+#pos-int1 { left: 32%; top: 27%; }    
+#pos-int2 { left: 32%; top: 47%; }    
+#pos-esc1 { left: 28%; top: 3%; }     
+#pos-esc2 { left: 28%; top: 69%; }    
+#pos-int3 { left: 47%; top: 37%; }    
+#pos-esc3 { left: 43%; top: 69%; }    
+#pos-int4 { left: 62%; top: 37%; }    
+#pos-int5 { left: 83%; top: 24%; }    
+#pos-ext2 { left: 82%; top: 57%; }    
+/* EXT 3 reste en bas ! */
+#pos-ext3 { left: 55%; top: 90%; }    
+
+/* Design graphique des escaliers */
+.stair-h {
+    position: absolute;
+    background: repeating-linear-gradient(to right, transparent, transparent 4px, rgba(255,255,255,0.3) 4px, rgba(255,255,255,0.3) 6px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    z-index: 1;
+}
+
+.stair-v {
+    position: absolute;
+    background: repeating-linear-gradient(to bottom, transparent, transparent 4px, rgba(255,255,255,0.3) 4px, rgba(255,255,255,0.3) 6px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    z-index: 1;
+}
+
+
+/* ========================================================= */
+/* --- EFFET TRANSITION CAMÉRA : STYLE VHS AUTHENTIQUE ---   */
+/* ========================================================= */
+
+@keyframes vhsBands {
+    0% { background-position: 0 0, 0 -50vh; }
+    100% { background-position: 0 0, 0 100vh; }
+}
+
+#cam-transition {
+    position: absolute; 
+    top: 0; left: 0; 
+    width: 100vw; height: 100vh;
+    /* Couche 1 : le bruit statique | Couche 2 : les bandes blanches horizontales VHS */
+    background-image: 
+        url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyBAMAAADsEZWCAAAAGFBMVEUAAAAAAP8A/wD/AP8A/wD/AP8A/wD/AP8nKikzAAAACHRSTlMAmpv+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+v6+vqwAAAJRJREFUOMtjYMAOGJmQAMw4I1EwMwZkEExiZ0AGxkwM2AETkzGQATOTARnAMBkDGZgwGQIZmDEZAhkYMRkCGZgwGQIZmDEZAhkYMRkCGZgwGQIZmDEZAhkYMRkCGZgwGQIZmDEZAhkYMRkCGZgwGQIZmDEZAhkYMRkCGZgwGQIZmDEZAhkYMQAAMU8n2yq0oYAAAAAASUVORK5CYII='),
+        repeating-linear-gradient(
+            to bottom, 
+            transparent, 
+            transparent 15%, 
+            rgba(255, 255, 255, 0.3) 15%, 
+            rgba(255, 255, 255, 0.3) 18%, 
+            transparent 18%, 
+            transparent 40%, 
+            rgba(255, 255, 255, 0.15) 40%, 
+            rgba(255, 255, 255, 0.15) 42%
+        );
+    background-size: 200px 200px, 100% 50vh;
+    z-index: 99;
+    pointer-events: none;
+    opacity: 0.85; /* Assez visible mais pas aveuglant */
+    filter: grayscale(80%) contrast(150%); /* Rend l'image en dessous terne pendant le changement */
+    animation: vhsBands 0.15s linear infinite, trueStatic 0.05s steps(2) infinite;
+}
+
+
+/* ========================================================= */
+/* --- ZONES CLIQUABLES INVISIBLES (PORTES & FENÊTRE) ---    */
+/* ========================================================= */
+
+.clickable-zone {
+    position: absolute;
+    cursor: pointer; /* Transforme la souris en main */
+    z-index: 30; /* Au-dessus de l'image de fond, en dessous des boutons */
+    
+    /* DÉCOMMENTE LA LIGNE EN DESSOUS POUR VOIR LES ZONES EN ROUGE (DEBUG) */
+    /* border: 2px solid red; background-color: rgba(255, 0, 0, 0.2); */
+}
+
+/* Emplacements calculés selon tes images */
+#door-left-zone { left: 20%; top: 25%; width: 17%; height: 50%; }
+#door-right-zone { right: 20%; top: 25%; width: 17%; height: 50%; }
+
+/* La fenêtre prend un grand espace au centre */
+#window-zone { left: 25%; top: 15%; width: 50%; height: 70%; }
+
+/* ========================================================= */
+/* --- BOUTON PORTE SERVEUR (SUR LA CAMÉRA) ---              */
+/* ========================================================= */
+
+#btn-open-server {
+    position: absolute;
+    bottom: 300px;
+    left: 50px;
+    z-index: 80;
+}
+
+/* État inactif (grisé) */
+.control-btn.disabled {
+    color: #555 !important;
+    border-color: #555 !important;
+    cursor: not-allowed !important;
+}
+.control-btn.disabled:hover {
+    background-color: rgba(0, 0, 0, 0.7) !important; /* Retire l'effet hover */
+}
+
+
+/* ========================================================= */
+/* --- BOUTON PORTE SERVEUR (SUR LA CAMÉRA) ---              */
+/* ========================================================= */
+
+#btn-open-server {
+    position: absolute;
+    bottom: 300px; /* Déplacé vers le milieu comme demandé */
+    left: 50px;
+    z-index: 80;
+}
+
+.control-btn.disabled {
+    color: #555 !important;
+    border-color: #555 !important;
+    cursor: not-allowed !important;
+}
+.control-btn.disabled:hover {
+    background-color: rgba(0, 0, 0, 0.7) !important; 
+}
+
+
+/* ========================================================= */
+/* --- JAUGE DE TEMPÉRATURE (SURCHAUFFE) ---                 */
+/* ========================================================= */
+
+#temperature-ui {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 110; /* Très haut pour passer au-dessus des caméras (45) */
+    width: 320px;
+}
+
+#temp-label {
+    color: white;
+    font-family: var(--font-main);
+    font-size: 2rem;
+    margin-bottom: 5px;
+    text-shadow: 2px 2px 4px black;
+    letter-spacing: 2px;
+    display: flex;
+    justify-content: space-between; /* Espace le mot et le pourcentage */
+}
+
+#temp-percentage {
+    color: #ff5555; /* Rouge pour alerter */
+    font-weight: bold;
+}
+
+#temp-bar-container {
+    width: 100%;
+    height: 30px;
+    border: 3px solid white;
+    background-color: rgba(0, 0, 0, 0.6);
+    position: relative;
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.2);
+}
+
+#temp-bar-fill {
+    height: 100%;
+    width: 0%; 
+    background: linear-gradient(to right, lime 0%, yellow 50%, red 100%);
+    background-size: 320px 100%; 
+    transition: width 0.5s linear;
+}
+
+.dev-kill-btn { top: 90px !important; }
