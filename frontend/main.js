@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const doorRightZone = document.getElementById('door-right-zone');
     const windowZone = document.getElementById('window-zone');
     
-    // UI TEMPÉRATURE
+    // UI TEMPÉRATURE & DEV
     const temperatureUI = document.getElementById('temperature-ui');
     const tempBarFill = document.getElementById('temp-bar-fill');
     const tempPercentage = document.getElementById('temp-percentage');
@@ -81,15 +81,72 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnDevSetNight = document.getElementById('btn-dev-set-night');
     const devNightInput = document.getElementById('dev-night-input');
     const btnDevJumpscare = document.getElementById('btn-dev-jumpscare');
+    
+    // =========================================================
+    // --- VARIABLES & LOGIQUE PHONE GUY ---
+    // =========================================================
+    const btnPhone = document.getElementById('btn-phone');
+    let phoneRingAudio = new Audio('sound_effect/sfx_phone_ring_loop.mp3');
+    phoneRingAudio.loop = true;
+    let phoneGuyAudio = null;
+    let isPhoneRinging = false;
+    let phoneRingTimeout = null;
+
+    function stopAllPhoneAudio() {
+        if (phoneRingAudio) {
+            phoneRingAudio.pause();
+            phoneRingAudio.currentTime = 0;
+        }
+        if (phoneGuyAudio) {
+            phoneGuyAudio.pause();
+            phoneGuyAudio.currentTime = 0;
+        }
+        if (phoneRingTimeout) clearTimeout(phoneRingTimeout);
+        
+        isPhoneRinging = false;
+        if (btnPhone) {
+            btnPhone.classList.add('hidden');
+            btnPhone.classList.remove('ringing', 'active-call');
+        }
+    }
+
+    if (btnPhone) {
+        btnPhone.addEventListener('click', () => {
+            if (isPhoneRinging) {
+                // LE JOUEUR DÉCROCHE
+                isPhoneRinging = false;
+                phoneRingAudio.pause();
+                phoneRingAudio.currentTime = 0;
+                clearTimeout(phoneRingTimeout); 
+                
+                phoneGuyAudio = new Audio(`sound_effect/phone_guy_${activeNightLevel}.mp3`);
+                phoneGuyAudio.volume = 0.8;
+                phoneGuyAudio.play().catch(err => console.error("Erreur Phone Guy:", err));
+                
+                btnPhone.innerHTML = "📵 Mute Call";
+                btnPhone.classList.remove('ringing');
+                btnPhone.classList.add('active-call');
+
+                phoneGuyAudio.onended = () => {
+                    playSFX('sfx_phone_hangup.mp3');
+                    stopAllPhoneAudio();
+                };
+            } else if (phoneGuyAudio && !phoneGuyAudio.paused) {
+                // LE JOUEUR RACCROCHE AU NEZ
+                playSFX('sfx_phone_hangup.mp3');
+                stopAllPhoneAudio();
+            }
+        });
+    }
+
+    // --- VARIABLES DE PARTIE ---
     let gameInterval;
-    // On initialise les positions au spawn
     let currentPositions = { "Bluebear": "ext_03", "Redbear": "ext_03", "Burncap": "ext_01_0" };
     let serverDoorInterval;
     let tempInterval;
     let currentCameraId = 'int_01';
     let activeNightLevel = 1;
 
-    // --- VARIABLES D'ÉTAT ---
     let isLeftDoorClosed = false;
     let isRightDoorClosed = false;
     let isWindowClosed = false;
@@ -97,14 +154,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let isServerDoorOpen = true; 
     let isBlackout = false;
     let currentTemperature = 0;
+    let isGoldenFabronActive = false; 
 
-    let isGoldenFabronActive = false; // NOUVEAU
-
-    // --- Mémorisation des sons d'apparition ---
     let bbDoorSoundPlayed = false;
     let rbDoorSoundPlayed = false;
 
-    // --- VARIABLES AUDIO D'AMBIANCE ---
     const serverAudio = new Audio('sound_effect/ambiance_server_room.mp3');
     serverAudio.volume = 0.15; 
     serverAudio.loop = true;  
@@ -115,19 +169,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function playSFX(filename, durationMs = null) {
         const audio = new Audio(`sound_effect/${filename}`);
         audio.volume = 0.8; 
-        
         audio.play().catch(err => console.error("Erreur SFX :", err));
-
         if (durationMs) {
             setTimeout(() => {
                 let fadeAudio = setInterval(() => {
-                    if (audio.volume > 0.1) {
-                        audio.volume -= 0.1;
-                    } else {
-                        clearInterval(fadeAudio);
-                        audio.pause();
-                        audio.currentTime = 0;
-                    }
+                    if (audio.volume > 0.1) audio.volume -= 0.1;
+                    else { clearInterval(fadeAudio); audio.pause(); audio.currentTime = 0; }
                 }, 50); 
             }, durationMs);
         }
@@ -167,27 +214,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isLeftDoorClosed && isRightDoorClosed) {
                 mainViewImg.src = 'img/office/desk/desk_closed.webp';
             } else if (isLeftDoorClosed) {
-                if (bbAtDoor) {
-                    mainViewImg.src = 'img/office/desk/desk_left_closed_bluebear_right.webp';
-                } else {
-                    mainViewImg.src = 'img/office/desk/desk_left_closed.webp';
-                }
+                if (bbAtDoor) mainViewImg.src = 'img/office/desk/desk_left_closed_bluebear_right.webp';
+                else mainViewImg.src = 'img/office/desk/desk_left_closed.webp';
             } else if (isRightDoorClosed) {
-                if (rbAtDoor) {
-                    mainViewImg.src = 'img/office/desk/desk_right_closed_redbear_left.webp'; 
-                } else {
-                    mainViewImg.src = 'img/office/desk/desk_right_closed.webp';
-                }
+                if (rbAtDoor) mainViewImg.src = 'img/office/desk/desk_right_closed_redbear_left.webp'; 
+                else mainViewImg.src = 'img/office/desk/desk_right_closed.webp';
             } else {
-                if (bbAtDoor && rbAtDoor) {
-                    mainViewImg.src = 'img/office/desk/desk_open_redbear_left_bluebear_right.webp';
-                } else if (bbAtDoor) {
-                    mainViewImg.src = 'img/office/desk/desk_open_bluebear_right.webp';
-                } else if (rbAtDoor) {
-                    mainViewImg.src = 'img/office/desk/desk_open_redbear_left.webp';
-                } else {
-                    mainViewImg.src = 'img/office/desk/desk_open.png';
-                }
+                if (bbAtDoor && rbAtDoor) mainViewImg.src = 'img/office/desk/desk_open_redbear_left_bluebear_right.webp';
+                else if (bbAtDoor) mainViewImg.src = 'img/office/desk/desk_open_bluebear_right.webp';
+                else if (rbAtDoor) mainViewImg.src = 'img/office/desk/desk_open_redbear_left.webp';
+                else mainViewImg.src = 'img/office/desk/desk_open.png';
             }
         }
     }
@@ -248,15 +284,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let bcLoc = currentPositions["Burncap"]; 
 
         if (camId === 'ext_03') {
-            if (bbLoc === 'ext_03' && rbLoc === 'ext_03') {
-                return 'img/cameras/ext_03/cam_ext_03_full.webp'; 
-            } else if (rbLoc === 'ext_03') {
-                return 'img/cameras/ext_03/cam_ext_03_bluebear_out.webp'; 
-            } else if (bbLoc === 'ext_03') {
-                return 'img/cameras/ext_03/cam_ext_03_redbear_out.webp'; 
-            } else {
-                return 'img/cameras/ext_03/cam_ext_03_empty.webp'; 
-            }
+            if (bbLoc === 'ext_03' && rbLoc === 'ext_03') return 'img/cameras/ext_03/cam_ext_03_full.webp'; 
+            else if (rbLoc === 'ext_03') return 'img/cameras/ext_03/cam_ext_03_bluebear_out.webp'; 
+            else if (bbLoc === 'ext_03') return 'img/cameras/ext_03/cam_ext_03_redbear_out.webp'; 
+            else return 'img/cameras/ext_03/cam_ext_03_empty.webp'; 
         } 
 
         if (camId === 'ext_01') {
@@ -351,11 +382,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (currentCameraId === 'int_01') {
-                if (isGoldenFabronActive) {
-                    camFeedImg.src = 'img/cameras/int_01/cam_int_01_golden_fabron.webp';
-                } else {
-                    camFeedImg.src = 'img/cameras/int_01/cam_int_01_open.webp';
-                }
+                if (isGoldenFabronActive) camFeedImg.src = 'img/cameras/int_01/cam_int_01_golden_fabron.webp';
+                else camFeedImg.src = 'img/cameras/int_01/cam_int_01_open.webp';
             }
         }
     });
@@ -401,6 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isBlackout) return;
         isBlackout = true;
         stopServerAmbiance();
+        stopAllPhoneAudio(); // COUPE LE PHONE GUY
         playSFX('sfx_electric_zap.mp3'); 
         
         inWindowView = false;
@@ -501,10 +530,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function loopServerAmbiance() {
-        if (isBlackout) {
-            stopServerAmbiance();
-            return;
-        }
+        if (isBlackout) { stopServerAmbiance(); return; }
 
         if (isServerAmbiancePlaying) {
             serverAudio.pause();
@@ -537,7 +563,26 @@ document.addEventListener('DOMContentLoaded', () => {
         inWindowView = false;
         isServerDoorOpen = true; 
         isBlackout = false;
-        isGoldenFabronActive = false; // Réinitialisation
+        isGoldenFabronActive = false; 
+
+        // --- DÉMARRER L'APPEL ---
+        stopAllPhoneAudio(); 
+        
+        if (activeNightLevel <= 3) {
+            setTimeout(() => {
+                isPhoneRinging = true;
+                btnPhone.innerHTML = "📞 Décrocher";
+                btnPhone.classList.remove('hidden', 'active-call');
+                btnPhone.classList.add('ringing');
+                
+                phoneRingAudio.currentTime = 0;
+                phoneRingAudio.play();
+
+                phoneRingTimeout = setTimeout(() => {
+                    if (isPhoneRinging) stopAllPhoneAudio();
+                }, 17000);
+            }, 2000); 
+        }
         
         currentTemperature = 0;
         tempBarFill.style.width = '0%';
@@ -553,18 +598,14 @@ document.addEventListener('DOMContentLoaded', () => {
         doorRightZone.classList.remove('hidden');
         windowZone.classList.add('hidden');
 
-        // --- NOUVEAU : Afficher le panel Dev In-Game uniquement pour les devs ---
         const devPanel = document.getElementById('dev-panel');
         if (devPanel) {
             const userDataStr = localStorage.getItem('fnaf_user');
             if (userDataStr) {
                 const user = JSON.parse(userDataStr);
                 const isDev = (user.username === "Hamza" || user.username === "Nathan" || user.username === "Damien");
-                if (isDev) {
-                    devPanel.classList.remove('hidden');
-                } else {
-                    devPanel.classList.add('hidden');
-                }
+                if (isDev) devPanel.classList.remove('hidden');
+                else devPanel.classList.add('hidden');
             } else {
                 devPanel.classList.add('hidden');
             }
@@ -585,7 +626,6 @@ document.addEventListener('DOMContentLoaded', () => {
         serverDoorInterval = setInterval(() => {
             if (isServerDoorOpen && !isBlackout && Math.random() < 0.4) {
                 isServerDoorOpen = false;
-                
                 stopServerAmbiance();
                 playSFX('sfx_door_slam.mp3');
 
@@ -639,7 +679,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (oldBBPos === 'porte_droite' && currentPositions["Bluebear"] !== 'porte_droite' && currentPositions["Bluebear"] !== 'office') {
                         playSFX('sfx_footsteps.mp3', 2500);
                     }
-                    
                     if (oldRBPos === 'porte_gauche' && currentPositions["Redbear"] !== 'porte_gauche' && currentPositions["Redbear"] !== 'office') {
                         playSFX('sfx_footsteps.mp3', 2500);
                     }
@@ -648,8 +687,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (!cameraSystem.classList.contains('hidden') && currentCameraId !== 'int_01') {
                         camFeedImg.src = getCameraImageSrc(currentCameraId);
-                    }
-                    else if (cameraSystem.classList.contains('hidden')) {
+                    } else if (cameraSystem.classList.contains('hidden')) {
                         if (oldBBPos !== currentPositions["Bluebear"] || oldRBPos !== currentPositions["Redbear"]) {
                             updateOfficeView();
                         }
@@ -662,6 +700,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (tempInterval) clearInterval(tempInterval);
                     
                     stopServerAmbiance();
+                    stopAllPhoneAudio(); // COUPE LE PHONE GUY
 
                     const attacker = state.jumpscareAnimatronic;
                     jumpscareImg.src = `img/jumpscares/jumpscare_${attacker.toLowerCase()}.png`;
@@ -680,6 +719,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         fadeOverlay.classList.add('visible');
 
                         setTimeout(() => {
+                            // --- NOUVEAU : On coupe net le cri du monstre ---
+                            jumpscareSound.pause();
+                            jumpscareSound.currentTime = 0;
+                            
+                            // On retire l'image
                             jumpscareContainer.classList.remove('active', 'redbear-active');
                             cameraSystem.classList.add('hidden');
                             cameraEffects.classList.add('hidden');
@@ -696,8 +740,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }, 1500);
                             }, 500); 
 
-                        }, 100); 
-                    }, 2000); 
+                        }, 100); // 100ms après l'écran noir de fin d'anim
+                    }, 2000); // Durée exacte de l'animation CSS (2s)
                     
                     return;
                 }
@@ -708,6 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (tempInterval) clearInterval(tempInterval); 
                     
                     stopServerAmbiance();
+                    stopAllPhoneAudio(); // COUPE LE PHONE GUY
                     
                     gameScreen.classList.add('hidden');
                     cameraSystem.classList.add('hidden'); 
@@ -749,7 +794,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (animatronicName === 'GoldenFabron') {
             isGoldenFabronActive = (direction === 'forward');
-            
             if (currentCameraId === 'int_01') {
                 if (isGoldenFabronActive) {
                     camFeedImg.src = 'img/cameras/int_01/cam_int_01_golden_fabron.webp';
@@ -759,21 +803,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!isServerDoorOpen) btnOpenServer.classList.remove('disabled');
                 }
             }
-            
             updateDevButtonsState();
             return; 
         }
         try {
             await fetch('http://localhost:8080/api/game/dev/move', {
                 method: 'POST',
-                headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json' 
-                },
-                body: JSON.stringify({ 
-                    direction: direction,
-                    animatronic: animatronicName
-                })
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ direction: direction, animatronic: animatronicName })
             });
             pollGameState();
         } catch (error) { console.error("Impossible de forcer le mouvement", error); }
@@ -781,39 +818,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if(btnDevForward) btnDevForward.addEventListener('click', () => forceMoveAnimatronic('forward'));
     if(btnDevBackward) btnDevBackward.addEventListener('click', () => forceMoveAnimatronic('backward'));
-    // --- RÉ-IMPLÉMENTATION DU BOUTON JUMPSCARE ---
+
     if (btnDevJumpscare) {
         btnDevJumpscare.addEventListener('click', async () => {
             const animatronicName = devAnimatronicSelect.value;
-            
-            // Si c'est Golden Fabron, c'est uniquement en Frontend
             if (animatronicName === 'GoldenFabron') {
                 triggerGoldenFabronCrash();
                 return;
             }
-
-            // Sinon, on demande au serveur
             const token = localStorage.getItem('fnaf_jwt');
             try {
                 const response = await fetch('http://localhost:8080/api/game/dev/jumpscare', {
                     method: 'POST',
-                    headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json' 
-                    },
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ animatronic: animatronicName })
                 });
-                
-                if (response.ok) {
-                    // On force un rafraîchissement pour voir le jumpscare de suite
-                    pollGameState(); 
-                } else {
-                    const errorText = await response.text();
-                    console.error("Erreur serveur jumpscare:", errorText);
-                }
-            } catch (error) { 
-                console.error("Impossible de forcer le jumpscare", error); 
-            }
+                if (response.ok) pollGameState(); 
+                else console.error("Erreur serveur jumpscare:", await response.text());
+            } catch (error) { console.error("Impossible de forcer le jumpscare", error); }
         });
     }
 
@@ -827,12 +849,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok) {
                 const data = await response.json();
-                
                 clearInterval(gameInterval);
                 if (serverDoorInterval) clearInterval(serverDoorInterval); 
                 if (tempInterval) clearInterval(tempInterval); 
                 
                 stopServerAmbiance(); 
+                stopAllPhoneAudio(); // COUPE LE PHONE GUY
                 
                 const userDataStr = localStorage.getItem('fnaf_user');
                 if (userDataStr) {
@@ -847,9 +869,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 temperatureUI.classList.add('hidden');
                 gameOverScreen.classList.remove('hidden');
             }
-        } catch (error) { 
-            console.error("Impossible de mourir", error); 
-        }
+        } catch (error) { console.error("Impossible de mourir", error); }
     });
 
     btnReturnMenuGo.addEventListener('click', () => {
@@ -872,10 +892,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch('http://localhost:8080/api/game/dev/set-night', {
                     method: 'POST',
-                    headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json' 
-                    },
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ night: targetNight })
                 });
 
@@ -887,13 +904,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (targetNight > user.maxNight) user.maxNight = targetNight;
                         localStorage.setItem('fnaf_user', JSON.stringify(user));
                     }
-                    
                     checkAuthStatus(); 
                     btnNewGame.click();
                 }
-            } catch (error) { 
-                console.error("Erreur changement de nuit", error); 
-            }
+            } catch (error) { console.error("Erreur changement de nuit", error); }
         });
     }
 
@@ -924,9 +938,7 @@ document.addEventListener('DOMContentLoaded', () => {
             authModal.classList.add('hidden');
             inputPassword.value = '';
             checkAuthStatus();
-        } catch (error) { 
-            authMessage.textContent = error.message; 
-        }
+        } catch (error) { authMessage.textContent = error.message; }
     }
 
     function checkAuthStatus() {
@@ -951,7 +963,6 @@ document.addEventListener('DOMContentLoaded', () => {
             btnNewGame.classList.remove('hidden');
             playerStatsContainer.classList.remove('hidden');
             
-            // NOUVEAU : On vérifie le PSEUDO du joueur pour le panneau Dev de l'accueil
             if (devPanelTitle) {
                 const isDev = (user.username === "Hamza" || user.username === "Nathan" || user.username === "Damien");
                 if (isDev) devPanelTitle.classList.remove('hidden');
@@ -982,15 +993,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { scoreBody.innerHTML = '<tr><td colspan="3" style="color: red;">Erreur de connexion au serveur.</td></tr>'; }
     }
 
-
-    // =========================================================
-    // --- FONCTION SPÉCIALE : CRASH GOLDEN FABRON ---
-    // =========================================================
     async function triggerGoldenFabronCrash() {
         clearInterval(gameInterval);
         if (serverDoorInterval) clearInterval(serverDoorInterval); 
         if (tempInterval) clearInterval(tempInterval); 
         stopServerAmbiance(); 
+        stopAllPhoneAudio(); // COUPE LE PHONE GUY
         
         const token = localStorage.getItem('fnaf_jwt');
         try {
@@ -1017,7 +1025,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         jumpscareContainer.classList.add('golden-active');
 
-        const crashDelay = Math.floor(Math.random() * 3000) + 3000; // Entre 3 et 6s
+        const crashDelay = Math.floor(Math.random() * 3000) + 3000; 
         setTimeout(() => {
             goldenSound.pause();
             goldenSound.currentTime = 0;

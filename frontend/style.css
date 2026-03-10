@@ -542,3 +542,48 @@ body { background-color: var(--bg-color); color: var(--text-color); font-family:
     0% { transform: scale(1.25) translate(2px, 2px); }
     50% { transform: scale(1.25) translate(-2px, -2px); }
     100% { transform: scale(1.25) translate(2px, -2px); }}
+
+   /* --- BOUTON TELEPHONE --- */
+#btn-phone {
+    position: absolute;
+    bottom: 30px; /* Placé en bas */
+    right: 40px;  /* Placé à droite */
+    z-index: 100;
+    padding: 15px 25px;
+    font-family: var(--font-main);
+    font-size: 2rem;
+    background-color: rgba(0, 0, 0, 0.8);
+    cursor: pointer;
+    transition: 0.2s;
+    border: 3px solid;
+}
+
+/* État : Ça sonne (Vert + Animation de tremblement) */
+#btn-phone.ringing {
+    color: #55ff55;
+    border-color: #55ff55;
+    /* Vibration très rapide (0.1s) et infinie */
+    animation: phone-ring-shake 0.1s infinite; 
+    box-shadow: 0 0 10px rgba(85, 255, 85, 0.5);
+}
+
+/* État : En ligne (Rouge, plus d'animation) */
+#btn-phone.active-call {
+    color: #ff5555;
+    border-color: #ff5555;
+    animation: none;
+    box-shadow: 0 0 10px rgba(255, 85, 85, 0.5);
+}
+
+#btn-phone:hover {
+    background-color: rgba(50, 50, 50, 0.9);
+}
+
+/* --- ANIMATION DE VIBRATION (TÉLÉPHONE QUI SONNE) --- */
+@keyframes phone-ring-shake {
+    0% { transform: translateX(0) rotate(0deg); }
+    25% { transform: translateX(-4px) rotate(-3deg); }
+    50% { transform: translateX(4px) rotate(3deg); }
+    75% { transform: translateX(-4px) rotate(-3deg); }
+    100% { transform: translateX(4px) rotate(3deg); }
+}
