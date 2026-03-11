@@ -520,16 +520,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function calculateTemperature() {
         if (isBlackout) return; 
 
-        let heatDelta = -2.0; 
+        // Refroidissement de base beaucoup plus lent (-1.0 au lieu de -2.0)
+        let heatDelta = -1.0; 
         
-        if (isWindowClosed) heatDelta += 3.5;
-        if (!isServerDoorOpen) heatDelta += 2.5;
-        if (isLeftDoorClosed) heatDelta += 1.25;
-        if (isRightDoorClosed) heatDelta += 1.25;
-        if (!cameraSystem.classList.contains('hidden')) heatDelta += 1.0;
+        // J'ai baissé la chaleur générée par les éléments fermés pour équilibrer
+        if (isWindowClosed) heatDelta += 2.0;
+        if (!isServerDoorOpen) heatDelta += 1.5;
+        if (isLeftDoorClosed) heatDelta += 0.75;
+        if (isRightDoorClosed) heatDelta += 0.75;
+        
+        let cappedNight = Math.min(activeNightLevel, 10);
+
+        if (!cameraSystem.classList.contains('hidden')) {
+            // La caméra chauffe toujours, mais de façon plus raisonnable
+            // Base de 1.5 + 0.3 par nuit (Max +4.5 à la nuit 10)
+            heatDelta += 1.5 + (cappedNight * 0.3); 
+        }
 
         if (heatDelta > 0) {
-            let difficultyMultiplier = 1 + ((Math.min(activeNightLevel, 10) - 1) * 0.15);
+            let difficultyMultiplier = 1 + ((cappedNight - 1) * 0.15);
             heatDelta *= difficultyMultiplier;
         }
 
@@ -695,9 +704,16 @@ document.addEventListener('DOMContentLoaded', () => {
         tempInterval = setInterval(calculateTemperature, 1000); 
 
         if (serverDoorInterval) clearInterval(serverDoorInterval);
+        
+        // La vérification se fait toutes les 8 secondes (8000 ms) au lieu de 6
         serverDoorInterval = setInterval(() => {
-            let closeChance = 0.25 + ((activeNightLevel - 1) * 0.05);
-            if (closeChance > 0.85) closeChance = 0.85;
+            let cappedNight = Math.min(activeNightLevel, 10);
+            
+            // On commence à 15% de chance (au lieu de 25%), +4% par nuit supplémentaire
+            let closeChance = 0.15 + ((cappedNight - 1) * 0.04);
+            
+            // La chance de fermeture est capée à 60% maximum (au lieu de 85%)
+            if (closeChance > 0.60) closeChance = 0.60;
 
             if (isServerDoorOpen && !isBlackout && Math.random() < closeChance) {
                 isServerDoorOpen = false;
@@ -709,7 +725,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     btnOpenServer.classList.remove('disabled');
                 }
             }
-        }, 6000);
+        }, 8000);
     }
 
     async function pollGameState() {
