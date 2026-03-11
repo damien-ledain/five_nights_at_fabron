@@ -25,7 +25,7 @@ import fr.univ.fabron.fnaf_fabron.score.ScoreRepository;
 @CrossOrigin(origins = "*")
 public class GameController {
 
-    private static final int SECONDS_PER_HOUR = 10; 
+    private static final int SECONDS_PER_HOUR = 60; 
     private static final int TOTAL_NIGHT_HOURS = 6; 
 
     private final GameSessionRepository gameSessionRepository;

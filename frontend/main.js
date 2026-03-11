@@ -91,6 +91,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let phoneGuyAudio = null;
     let isPhoneRinging = false;
     let phoneRingTimeout = null;
+    let blackoutTimeout;
+    let flickerInterval;
 
     function stopAllPhoneAudio() {
         if (phoneRingAudio) {
@@ -165,6 +167,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let serverAmbianceTimeout;
     let isServerAmbiancePlaying = false;
 
+    let oneeyedMusic = new Audio('sound_effect/music_oneeyed.mp3');
+    let oeDoorSoundPlayed = false;
+
     // --- FONCTION POUR LES BRUITAGES (SFX) ---
     function playSFX(filename, durationMs = null) {
         const audio = new Audio(`sound_effect/${filename}`);
@@ -189,14 +194,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateOfficeView() {
         if (isBlackout) return;
 
+        // --- POSITIONS AUX PORTES ---
         let bbAtDoor = (currentPositions["Bluebear"] === 'porte_droite');
         let rbAtDoor = (currentPositions["Redbear"] === 'porte_gauche');
+        let oeAtDoor = (currentPositions["Oneeyed"] === 'porte_droite');
 
+        // --- RÉINITIALISATION DES BRUITAGES SI PARTIS ---
         if (!bbAtDoor) bbDoorSoundPlayed = false;
         if (!rbAtDoor) rbDoorSoundPlayed = false;
+        if (!oeAtDoor) oeDoorSoundPlayed = false; 
 
         let isLookingAtDesk = !inWindowView && cameraSystem.classList.contains('hidden');
 
+        // --- BRUITAGES DE PRÉSENCE À LA PORTE ---
         if (isLookingAtDesk) {
             if (bbAtDoor && !isRightDoorClosed && !bbDoorSoundPlayed) {
                 playSFX('sfx_animatronic_at_door.mp3');
@@ -206,8 +216,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 playSFX('sfx_animatronic_at_door.mp3');
                 rbDoorSoundPlayed = true;
             }
+            if (oeAtDoor && !isRightDoorClosed && !oeDoorSoundPlayed) {
+                playSFX('sfx_animatronic_at_door.mp3');
+                oeDoorSoundPlayed = true;
+            }
         }
 
+        // --- MISE À JOUR VISUELLE (IMAGES) ---
         if (inWindowView) {
             mainViewImg.src = isWindowClosed ? 'img/office/window/window_closed.webp' : 'img/office/window/window_open.webp';
         } else {
@@ -215,13 +230,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 mainViewImg.src = 'img/office/desk/desk_closed.webp';
             } else if (isLeftDoorClosed) {
                 if (bbAtDoor) mainViewImg.src = 'img/office/desk/desk_left_closed_bluebear_right.webp';
+                else if (oeAtDoor) mainViewImg.src = 'img/office/desk/desk_left_closed_oneeyed_right.webp';
                 else mainViewImg.src = 'img/office/desk/desk_left_closed.webp';
             } else if (isRightDoorClosed) {
                 if (rbAtDoor) mainViewImg.src = 'img/office/desk/desk_right_closed_redbear_left.webp'; 
                 else mainViewImg.src = 'img/office/desk/desk_right_closed.webp';
             } else {
                 if (bbAtDoor && rbAtDoor) mainViewImg.src = 'img/office/desk/desk_open_redbear_left_bluebear_right.webp';
+                else if (oeAtDoor && rbAtDoor) mainViewImg.src = 'img/office/desk/desk_open_redbear_left_oneeyed_right.webp';
                 else if (bbAtDoor) mainViewImg.src = 'img/office/desk/desk_open_bluebear_right.webp';
+                else if (oeAtDoor) mainViewImg.src = 'img/office/desk/desk_open_oneeyed_right.webp';
                 else if (rbAtDoor) mainViewImg.src = 'img/office/desk/desk_open_redbear_left.webp';
                 else mainViewImg.src = 'img/office/desk/desk_open.png';
             }
@@ -282,13 +300,16 @@ document.addEventListener('DOMContentLoaded', () => {
         let bbLoc = currentPositions["Bluebear"];
         let rbLoc = currentPositions["Redbear"];
         let bcLoc = currentPositions["Burncap"]; 
+        let oeLoc = currentPositions["Oneeyed"];
 
         if (camId === 'ext_03') {
-            if (bbLoc === 'ext_03' && rbLoc === 'ext_03') return 'img/cameras/ext_03/cam_ext_03_full.webp'; 
-            else if (rbLoc === 'ext_03') return 'img/cameras/ext_03/cam_ext_03_bluebear_out.webp'; 
-            else if (bbLoc === 'ext_03') return 'img/cameras/ext_03/cam_ext_03_redbear_out.webp'; 
+            if (oeLoc === 'ext_03' && rbLoc === 'ext_03' && bbLoc === 'ext_03') return 'img/cameras/ext_03/cam_ext_03_full.webp'; 
+            else if (oeLoc === 'ext_03' && rbLoc === 'ext_03') return 'img/cameras/ext_03/cam_ext_03_bluebear_out.webp'; 
+            else if (oeLoc === 'ext_03') return 'img/cameras/ext_03/cam_ext_03_redbear_out.webp'; 
             else return 'img/cameras/ext_03/cam_ext_03_empty.webp'; 
         } 
+        
+        if (oeLoc === camId && camId !== 'int_04') return `img/cameras/${camId}/cam_${camId}_oneeyed.webp`; 
 
         if (camId === 'ext_01') {
             if (bcLoc === 'ext_01_1') return 'img/cameras/ext_01/cam_ext_01_burncap_01.webp';
@@ -428,21 +449,72 @@ document.addEventListener('DOMContentLoaded', () => {
     function triggerBlackout() {
         if (isBlackout) return;
         isBlackout = true;
+        
+        // 1. COUPER ABSOLUMENT TOUS LES AUTRES SONS 
         stopServerAmbiance();
-        stopAllPhoneAudio(); // COUPE LE PHONE GUY
+        stopAllPhoneAudio(); 
+
+        // 2. JOUER LE SON DE COUPURE DE COURANT
         playSFX('sfx_electric_zap.mp3'); 
         
+        // 3. FERMER L'INTERFACE
         inWindowView = false;
         cameraSystem.classList.add('hidden');      
         cameraEffects.classList.add('hidden');
-        
         temperatureUI.classList.add('hidden');
-        mainViewImg.src = 'img/office/desk/desk_blackout.webp';
-        
         officeControls.classList.add('hidden');
         doorLeftZone.classList.add('hidden');
         doorRightZone.classList.add('hidden');
         windowZone.classList.add('hidden');
+
+        // Plonge la salle dans le noir
+        mainViewImg.src = 'img/office/desk/desk_blackout.webp';
+
+        // --- DÉBUT DE LA SÉQUENCE ONEEYED (après 2s de silence) ---
+        setTimeout(() => {
+            // Sécurité : si le joueur a gagné ou quitté entre temps, on annule
+            if (gameScreen.classList.contains('hidden')) return; 
+
+            // FORCER LA MUSIQUE EN PRIORITÉ MAXIMALE
+            oneeyedMusic.currentTime = 0;
+            oneeyedMusic.volume = 1.0;
+            oneeyedMusic.play().catch(e => console.error(e));
+
+            // Fonction de clignotement aléatoire (flicker)
+            function flicker() {
+                if (!isBlackout || gameScreen.classList.contains('hidden')) return;
+                
+                if (mainViewImg.src.includes('desk_blackout_oneeyed')) {
+                    mainViewImg.src = 'img/office/desk/desk_blackout.webp';
+                } else {
+                    mainViewImg.src = 'img/office/desk/desk_blackout_oneeyed.webp';
+                }
+
+                let nextFlicker = Math.floor(Math.random() * 700) + 100;
+                flickerInterval = setTimeout(flicker, nextFlicker);
+            }
+            flicker();
+
+            // Tirer au sort la durée de survie (entre 5s et 20s)
+            let timeBeforeDeath = Math.floor(Math.random() * 15000) + 5000;
+            
+            blackoutTimeout = setTimeout(async () => {
+                clearTimeout(flickerInterval);
+                if (!oneeyedMusic.paused) oneeyedMusic.pause();
+                
+                // On prévient le backend de déclencher le Jumpscare de Oneeyed
+                const token = localStorage.getItem('fnaf_jwt');
+                try {
+                    await fetch('http://localhost:8080/api/game/dev/jumpscare', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ animatronic: "Oneeyed" })
+                    });
+                } catch (error) { console.error("Erreur fatal jumpscare", error); }
+                
+            }, timeBeforeDeath);
+
+        }, 2000); // 2 secondes dans le noir absolu
     }
 
     function calculateTemperature() {
@@ -624,7 +696,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (serverDoorInterval) clearInterval(serverDoorInterval);
         serverDoorInterval = setInterval(() => {
-            if (isServerDoorOpen && !isBlackout && Math.random() < 0.4) {
+            let closeChance = 0.25 + ((activeNightLevel - 1) * 0.05);
+            if (closeChance > 0.85) closeChance = 0.85;
+
+            if (isServerDoorOpen && !isBlackout && Math.random() < closeChance) {
                 isServerDoorOpen = false;
                 stopServerAmbiance();
                 playSFX('sfx_door_slam.mp3');
@@ -634,7 +709,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     btnOpenServer.classList.remove('disabled');
                 }
             }
-        }, 3000);
+        }, 6000);
     }
 
     async function pollGameState() {
@@ -667,30 +742,47 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (eventName === "sfx_window_knock") {
                             playSFX('sfx_window_knock.mp3');
                         }
+                        if (eventName === "sfx_chair_scoot") {
+                            playSFX('sfx_chair_scoot.mp3');
+                        }
                     });
                 }
 
                 if (state.positions) {
                     let oldBBPos = currentPositions["Bluebear"];
                     let oldRBPos = currentPositions["Redbear"];
+                    let oldOEPos = currentPositions["Oneeyed"]; 
                     
                     currentPositions = state.positions;
                     
-                    if (oldBBPos === 'porte_droite' && currentPositions["Bluebear"] !== 'porte_droite' && currentPositions["Bluebear"] !== 'office') {
-                        playSFX('sfx_footsteps.mp3', 2500);
+                    // --- GESTION MUSIQUE ONEEYED CORRECTE ---
+                    let isOeAtCam4 = currentPositions["Oneeyed"] === "int_04";
+                    let isWatchingCam4 = !cameraSystem.classList.contains('hidden') && currentCameraId === 'int_04';
+
+                    // ON NE TOUCHE PLUS À LA MUSIQUE SI ON EST EN BLACKOUT
+                    if (!isBlackout) {
+                        if (isOeAtCam4 && isWatchingCam4) {
+                            if (oneeyedMusic.paused) oneeyedMusic.play().catch(e => console.error(e));
+                        } else {
+                            if (!oneeyedMusic.paused) oneeyedMusic.pause();
+                        }
+
+                        if (!isOeAtCam4) {
+                            oneeyedMusic.currentTime = 0;
+                        }
                     }
-                    if (oldRBPos === 'porte_gauche' && currentPositions["Redbear"] !== 'porte_gauche' && currentPositions["Redbear"] !== 'office') {
-                        playSFX('sfx_footsteps.mp3', 2500);
-                    }
+                    // ----------------------------------------
+                    
+                    if (oldBBPos === 'porte_droite' && currentPositions["Bluebear"] !== 'porte_droite' && currentPositions["Bluebear"] !== 'office') playSFX('sfx_footsteps.mp3', 2500);
+                    if (oldRBPos === 'porte_gauche' && currentPositions["Redbear"] !== 'porte_gauche' && currentPositions["Redbear"] !== 'office') playSFX('sfx_footsteps.mp3', 2500);
+                    if (oldOEPos === 'porte_droite' && currentPositions["Oneeyed"] !== 'porte_droite' && currentPositions["Oneeyed"] !== 'office') playSFX('sfx_footsteps.mp3', 2500);
 
                     updateDevButtonsState();
                     
                     if (!cameraSystem.classList.contains('hidden') && currentCameraId !== 'int_01') {
                         camFeedImg.src = getCameraImageSrc(currentCameraId);
                     } else if (cameraSystem.classList.contains('hidden')) {
-                        if (oldBBPos !== currentPositions["Bluebear"] || oldRBPos !== currentPositions["Redbear"]) {
-                            updateOfficeView();
-                        }
+                        updateOfficeView(); 
                     }
                 }
 
@@ -699,8 +791,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (serverDoorInterval) clearInterval(serverDoorInterval);
                     if (tempInterval) clearInterval(tempInterval);
                     
+                    clearTimeout(blackoutTimeout);
+                    clearTimeout(flickerInterval);
+                    
                     stopServerAmbiance();
-                    stopAllPhoneAudio(); // COUPE LE PHONE GUY
+                    stopAllPhoneAudio(); 
+                    if (!oneeyedMusic.paused) oneeyedMusic.pause(); 
 
                     const attacker = state.jumpscareAnimatronic;
                     jumpscareImg.src = `img/jumpscares/jumpscare_${attacker.toLowerCase()}.png`;
@@ -719,11 +815,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         fadeOverlay.classList.add('visible');
 
                         setTimeout(() => {
-                            // --- NOUVEAU : On coupe net le cri du monstre ---
                             jumpscareSound.pause();
                             jumpscareSound.currentTime = 0;
                             
-                            // On retire l'image
                             jumpscareContainer.classList.remove('active', 'redbear-active');
                             cameraSystem.classList.add('hidden');
                             cameraEffects.classList.add('hidden');
@@ -740,8 +834,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }, 1500);
                             }, 500); 
 
-                        }, 100); // 100ms après l'écran noir de fin d'anim
-                    }, 2000); // Durée exacte de l'animation CSS (2s)
+                        }, 100); 
+                    }, 2000); 
                     
                     return;
                 }
@@ -749,10 +843,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (state.status === "WON") {
                     clearInterval(gameInterval);
                     if (serverDoorInterval) clearInterval(serverDoorInterval); 
-                    if (tempInterval) clearInterval(tempInterval); 
+                    if (tempInterval) clearInterval(tempInterval);
+                    
+                    clearTimeout(blackoutTimeout);
+                    clearTimeout(flickerInterval);
                     
                     stopServerAmbiance();
-                    stopAllPhoneAudio(); // COUPE LE PHONE GUY
+                    stopAllPhoneAudio(); 
+                    if (!oneeyedMusic.paused) oneeyedMusic.pause(); 
                     
                     gameScreen.classList.add('hidden');
                     cameraSystem.classList.add('hidden'); 
@@ -854,7 +952,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (tempInterval) clearInterval(tempInterval); 
                 
                 stopServerAmbiance(); 
-                stopAllPhoneAudio(); // COUPE LE PHONE GUY
+                stopAllPhoneAudio(); 
+
+                if (!oneeyedMusic.paused) oneeyedMusic.pause(); 
                 
                 const userDataStr = localStorage.getItem('fnaf_user');
                 if (userDataStr) {
@@ -998,7 +1098,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (serverDoorInterval) clearInterval(serverDoorInterval); 
         if (tempInterval) clearInterval(tempInterval); 
         stopServerAmbiance(); 
-        stopAllPhoneAudio(); // COUPE LE PHONE GUY
+        stopAllPhoneAudio(); 
+        if (!oneeyedMusic.paused) oneeyedMusic.pause(); 
         
         const token = localStorage.getItem('fnaf_jwt');
         try {

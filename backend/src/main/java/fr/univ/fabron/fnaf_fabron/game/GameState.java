@@ -20,6 +20,7 @@ public class GameState {
         animatronics.put("Bluebear", new Bluebear(nightLevel));
         animatronics.put("Redbear", new Redbear(nightLevel));
         animatronics.put("Burncap", new Burncap(nightLevel)); // Ajout de Burncap
+        animatronics.put("Oneeyed", new Oneeyed(nightLevel));
     }
 
     public void updateAll() {
@@ -27,6 +28,7 @@ public class GameState {
         animatronics.get("Bluebear").update(this);
         animatronics.get("Redbear").update(this);
         animatronics.get("Burncap").update(this);
+        animatronics.get("Oneeyed").update(this);
     }
 
     public void handleCollision(Animatronic mover) {

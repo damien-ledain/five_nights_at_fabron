@@ -23,7 +23,16 @@ public abstract class Animatronic {
             this.lastMoveTime = currentTime;
             int roll = random.nextInt(20) + 1;
             if (roll <= aiLevel) {
+                String oldLocation = currentLocation;
                 move(gameState);
+                
+                // Si l'animatronique a bien bougé et qu'il n'attaque pas la porte ou l'office
+                if (!oldLocation.equals(currentLocation) && !currentLocation.startsWith("porte") && !currentLocation.equals("office")) {
+                    // 25% de chance de faire le bruit de chaise
+                    if (random.nextInt(100) < 25) {
+                        gameState.triggerEvent("sfx_chair_scoot");
+                    }
+                }
             }
         }
     }
