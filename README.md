@@ -321,12 +321,13 @@ Un grand merci à ceux qui ont accepté de prêter leur image — et leur dignit
         <sub><i>"Merci d'avoir accepté d'être le monstre le plus chelou du jeu."</i></sub>
       </td>
       <td align="center" width="260">
-        <img src="./frontend/assets/goldenfabron.png" width="200" alt="Stacy"/><br/><br/>
-        <b>S̷̢͓̓t̸̡̺̀a̷̡͊c̸͙̓ÿ̷̧́</b><br/>
-        <sub>Incarnée par</sub><br/>
-        <b>S̵̛͉̑̿T̴͚̀̓A̷̳͑C̛͚̈́Y̛͍̒&nbsp;D̷̨̓O̷͚͑D̨̑E̷͙̓</b><br/>
-        <sub><code>// W̴A̷R̵N̶I̸N̷G̴ : d̴̨͑a̷͓͝t̵̛̑a̶̓ ̷̑c̷̈́o̵͑r̵̀r̷̛u̷p̶t̸ \\</code></sub>
-      </td>
+  <img src="./frontend/assets/goldenfabron.png" width="200" alt="GoldenFabron"/><br/><br/>
+  <b>☠️ G̸̡͓̻͊̑̕o̷̧͚͔͑̀͝l̵̡̛͉̰̑̿d̴̨͙͓͐̀̕ȇ̷̢͚͙̓͝n̸̡̛͓͔̒̿F̵̨̧͙̓̀͝a̷̡͚͓͊̑͠b̸̨̛͙̻̕͝r̷̡͓͔͑̀͠o̵̧͚͙͊̓͝n̸̡̛͓̻̒͝ ☠️</b><br/>
+  <sub>I̷̛͓n̸͙̒c̵̛͚a̷͓͊r̸͔̀n̵͙̑é̷͚e̸͓͝ p̵̛͙a̷͚͊r̸͓̀</sub><br/>
+  <b>S̵̡̢̛͎͉̯̑̿͐T̵̡̛͚͙̀̓̕A̷̡̛̳͇̻͑̚͝C̵̡̛͚̩͙̈́̓͝Y̷̨̛͍̺͓̒̿͠&nbsp;D̷̨̛͓͙̓̀̕Ö̵̡̢͚͙́̓͝D̷̢̨̛̻̑̕͝Ę̷̢͙͎̑̓̕͝</b><br/>
+  <sub><code>// [̴̧E̵͙R̸͓R̷͚O̵͔R̸͙]̴͓ :  r̵͊e̸͝c̷̀ȏ̵n̸͝n̷̛u̵͊e̸͝ —̴ f̵i̸c̷h̵i̸e̷r̵ c̸o̷r̵r̸o̵m̸p̵u̸ \\</code></sub><br/>
+  <sub><i>// m̸̛͓e̷͚͊r̸͓̀c̵̛͙î̷͚ ̸͓d̵̛͙'̸͓a̷͚͊v̵͙͝o̸͓͊i̷͚͝r̵̛͙ ̸͓p̷͚̀r̵͙͊ê̸͓t̷͚͠é̵͙ ̸͓t̷̛͚o̵͙͊n̸͓͝ ̷͚v̵̛͙i̸͓͝s̷͚͠a̵̛͙g̸͓͊e̷͚͝ ̵͙p̸͓̀o̷͚͠ȗ̵͙r̸͓͝ ̷͚ǘ̵͙n̸͓͝ ̷̛͚a̵͙͊n̸͓͝i̷͚͊m̵̛͙a̸͓͝t̷͚͠r̵͙͊o̸͓͝n̷͚͊i̵̛͙c̸͓͝ ̷͚q̵͙͊u̸͓͝e̷͚͠ ̵̛͙p̸͓͝e̷͚͊r̵͙̀s̸͓͠o̷͚͊n̵̛͙n̸͓͝e̷͚͠ ̵͙n̸͓͊'̷͚͝a̵̛͙ ̸͓v̷͚͊r̵͙͝a̸͓͊i̷͚͝m̵̛͙e̸͓͝n̷͚͠t̵͙͊ ̸͓v̷̛͚u̵͙͊ \\</i></sub>
+</td>
     </tr>
   </tbody>
 </table>
