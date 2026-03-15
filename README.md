@@ -223,7 +223,7 @@ Five-Nights-at-Fabron/
       </td>
       <td>Logique fonctionnelle du jeu, équilibrage des ressources (audio &amp; visuels), qualité du code &amp; refactoring (Clean Code)</td>
       <td align="center">
-        <img src="./frontend/assets/oneeyed.png" width="64" alt="Oneeyed"/><br/>
+        <img src="./frontend/assets/oneeyed.png" width="200" alt="Oneeyed"/><br/>
         <sub><b>👁️ Oneeyed</b></sub>
       </td>
     </tr>
@@ -234,7 +234,7 @@ Five-Nights-at-Fabron/
       </td>
       <td>Architecture globale du projet, développement backend complet (Spring Boot · API REST · JWT · Spring Security · Moteur de jeu)</td>
       <td align="center">
-        <img src="./frontend/assets/burncap.png" width="64" alt="Burncap"/><br/>
+        <img src="./frontend/assets/burncap.png" width="200" alt="Burncap"/><br/>
         <sub><b>🔥 Burncap</b></sub>
       </td>
     </tr>
@@ -245,7 +245,7 @@ Five-Nights-at-Fabron/
       </td>
       <td>Développement frontend (UI/UX, animations CSS, jumpscares), base de données MySQL &amp; gestion du dépôt Git</td>
       <td align="center">
-        <img src="./frontend/assets/redbear.png" width="64" alt="Redbear"/><br/>
+        <img src="./frontend/assets/redbear.png" width="200" alt="Redbear"/><br/>
         <sub><b>🐻 Redbear</b></sub>
       </td>
     </tr>
@@ -268,14 +268,14 @@ Un grand merci à ceux qui ont accepté de prêter leur image — et leur dignit
   <tbody>
     <tr>
       <td align="center" width="260">
-        <img src="./frontend/assets/bluebear.png" width="80" alt="Bluebear"/><br/><br/>
+        <img src="./frontend/assets/bluebear.png" width="200" alt="Bluebear"/><br/><br/>
         <b>🐻 Bluebear</b><br/>
         <sub>Incarné par</sub><br/>
         <b>Damien NOUVELLON</b><br/>
         <sub><i>"Merci d'avoir accepté d'être le monstre le plus chelou du jeu."</i></sub>
       </td>
       <td align="center" width="260">
-        <img src="./frontend/assets/goldenfabron.png" width="80" alt="Stacy"/><br/><br/>
+        <img src="./frontend/assets/goldenfabron.png" width="200" alt="Stacy"/><br/><br/>
         <b>S̷̢͓̓t̸̡̺̀a̷̡͊c̸͙̓ÿ̷̧́</b><br/>
         <sub>Incarnée par</sub><br/>
         <b>S̵̛͉̑̿T̴͚̀̓A̷̳͑C̛͚̈́Y̛͍̒&nbsp;D̷̨̓O̷͚͑D̨̑E̷͙̓</b><br/>
