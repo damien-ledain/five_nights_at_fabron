@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Five Nights at Fabron</title>
+    <link rel="icon" type="image/webp" href="assets/LogoIcon.webp">
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- =====================================================
+         EFFETS DE CAMÉRA (OVERLAY PERMANENT)
+         Positionné en fixed par-dessus tout le jeu (z-index: 70).
+         Actif pendant le jeu ET les menus pour une ambiance constante.
+         Contient : bruit statique, lignes de scan, ligne de glitch, vignette.
+         Géré via JS : retiré (.hidden) sur les écrans de game over / victoire.
+    ====================================================== -->
+    <div class="camera-effects hidden" id="camera-effects">
+        <div class="static-noise"></div>    <!-- Bruit de fond animé (texture PNG base64) -->
+        <div class="scanlines"></div>       <!-- Lignes horizontales type CRT -->
+        <div class="glitch-line"></div>     <!-- Bande lumineuse qui descend lentement -->
+        <div class="vignette"></div>        <!-- Assombrissement des coins (effet caméra de surveillance) -->
+    </div>
+
+    <!-- =====================================================
+         UI DE TEMPÉRATURE (SURCHAUFFE)
+         Affiché en haut à gauche pendant la partie (z-index: 110).
+         Masqué au menu et réinitialisé à chaque nouvelle nuit.
+         - #temp-bar-fill : sa largeur est mise à jour en JS (0% → 100%)
+         - Déclenche triggerBlackout() quand la barre est pleine
+    ====================================================== -->
+    <div id="temperature-ui" class="hidden">
+        <div id="temp-label">
+            SURCHAUFFE <span id="temp-percentage">0%</span>
+        </div>
+        <div id="temp-bar-container">
+            <div id="temp-bar-fill"></div>
+        </div>
+    </div>
+
+
+    <!-- =====================================================
+         ÉCRAN TITRE (MENU PRINCIPAL)
+         Affiché au lancement et après chaque partie.
+         Divisé en deux sections côte à côte :
+           - .menu-section  : navigation, stats joueur, outils dev
+           - .characters-section : visuels des animatroniques en arrière-plan
+    ====================================================== -->
+    <main id="title-screen">
+
+        <!-- Colonne gauche : menus, stats, dev tools -->
+        <section class="menu-section">
+
+            <h1 class="game-title">Five Nights<br>at Fabron</h1>
+
+            <!-- Navigation principale -->
+            <nav class="main-menu">
+                <!-- Visible si non connecté -->
+                <button id="btn-show-login" class="menu-btn">Connexion / Inscription</button>
+
+                <!-- Visible si connecté. Texte dynamique :
+                     "New Game" si currentNight == 1, "Continue / Night X" sinon -->
+                <button id="btn-new-game" class="menu-btn hidden">
+                    <span id="btn-new-game-text">New Game</span><br>
+                    <span id="btn-new-game-sub" class="menu-sub-text"></span>
+                </button>
+
+                <button id="btn-leaderboard" class="menu-btn">Leaderboard</button>
+            </nav>
+
+            <!-- Stats du joueur connecté (masqué si non connecté) -->
+            <div class="player-stats hidden" id="player-stats-container">
+                <p>Welcome back, <span id="player-name-display"></span>.</p>
+                <p>Max Night: <span id="max-night-display">--</span></p>
+                <p>Best Score: <span id="best-score-display">--</span></p>
+                <button id="btn-logout" class="small-btn">Déconnexion</button>
+            </div>
+
+            <!-- DEV TOOL : Forcer une nuit spécifique depuis l'accueil.
+                 Visible uniquement pour les comptes Hamza, Nathan, Damien. -->
+            <div id="dev-panel-title" class="hidden" style="margin-top: 20px; padding: 10px; border: 1px solid #e94560; background: rgba(10, 10, 20, 0.9);">
+                <h3 style="color: #e94560; font-family: 'VT323', monospace; margin-bottom: 5px;">DEV TOOLS (Accueil)</h3>
+                <label style="color: white; font-family: 'VT323', monospace; font-size: 1.2rem;">Aller à la Nuit :</label>
+                <input type="number" id="dev-night-input" value="1" min="1" max="10"
+                    style="width: 50px; background: #222; color: white; border: 1px solid #555; font-family: 'VT323', monospace; font-size: 1.2rem; text-align: center;">
+                <button id="btn-dev-set-night"
+                    style="background: #e94560; color: white; border: none; font-family: 'VT323', monospace; font-size: 1.2rem; cursor: pointer; padding: 2px 10px; margin-left: 10px;">
+                    Forcer &amp; Jouer
+                </button>
+            </div>
+
+            <div class="version-info">
+                <p>v 1.0.0</p>
+                <p>&copy;2026 Projet Universitaire</p>
+            </div>
+
+        </section>
+
+        <!-- Colonne droite : silhouettes des animatroniques empilées en couches.
+             L'ordre (z-index croissant) simule une profondeur : Golden Fabron au
+             fond, Bluebear au premier plan. La luminosité augmente vers l'avant. -->
+        <section class="characters-section">
+            <img src="assets/banner_crous.png"    alt="Banderole Crous" class="layer background-banner" id="banner-crous">
+            <img src="assets/goldenfabron.png"    alt="Goldenfabron"    class="layer animatronic"        id="animatronic-5"> <!-- z-index: 2 / brightness: 0.2 -->
+            <img src="assets/oneeyed.png"         alt="Oneeyed"         class="layer animatronic"        id="animatronic-4"> <!-- z-index: 3 / brightness: 0.35 -->
+            <img src="assets/burncap.png"         alt="Burncap"         class="layer animatronic"        id="animatronic-3"> <!-- z-index: 4 / brightness: 0.5 -->
+            <img src="assets/redbear.png"         alt="Redbear"         class="layer animatronic"        id="animatronic-2"> <!-- z-index: 5 / brightness: 0.7 -->
+            <img src="assets/bluebear.png"        alt="Bluebear"        class="layer animatronic"        id="animatronic-1"> <!-- z-index: 6 / brightness: 0.9 -->
+        </section>
+
+    </main>
+
+
+    <!-- =====================================================
+         ÉCRAN D'INTRODUCTION (NUIT 1 SEULEMENT)
+         Affiche une image de coupure de journal (article_intro.webp)
+         avec une animation de fondu CSS de 20s.
+         Le joueur peut passer avec le bouton ou attendre les 20s.
+         Géré via JS : introTimeout + btnSkipIntro.
+    ====================================================== -->
+    <main id="intro-screen" class="hidden fullscreen-overlay">
+        <img src="img/ui/article_intro.webp" alt="Article Intro" id="intro-image">
+        <button id="btn-skip-intro" class="menu-btn">Passer &gt;&gt;</button>
+    </main>
+
+
+    <!-- =====================================================
+         ÉCRAN DE JEU (VUE BUREAU)
+         Contient l'image principale du bureau, les zones cliquables
+         des portes/fenêtre, le HUD heure/nuit, les boutons de contrôle,
+         et le panneau développeur.
+    ====================================================== -->
+    <main id="game-screen" class="hidden">
+
+        <!-- DEV TOOL : Panneau de contrôle en jeu (collapsible).
+             Visible uniquement pour Hamza, Nathan, Damien.
+             Permet de forcer les mouvements des animatroniques et les jumpscares. -->
+        <div id="dev-panel" class="hidden"
+            style="position: absolute; top: 100px; left: 10px; z-index: 1000; min-width: 160px; font-family: 'VT323', monospace;">
+
+            <!-- Bouton toggle pour réduire/agrandir le panel -->
+            <button id="dev-toggle" onclick="
+                const body = document.getElementById('dev-body');
+                const arrow = document.getElementById('dev-arrow');
+                const isOpen = body.style.display !== 'none';
+                body.style.display = isOpen ? 'none' : 'flex';
+                arrow.textContent = isOpen ? '▶' : '▼';
+            " style="background: #1a1a2e; border: 1px solid #e94560; color: #e94560; font-family: 'VT323', monospace; font-size: 1.1rem; padding: 5px 12px; cursor: pointer; letter-spacing: 2px; width: 100%; display: flex; align-items: center; gap: 8px;">
+                <span id="dev-arrow">▼</span> DEV TOOLS
+            </button>
+
+            <!-- Corps du panel (masquable) -->
+            <div id="dev-body"
+                style="display: flex; flex-direction: column; gap: 6px; padding: 8px; background: rgba(10, 10, 20, 0.93); border: 1px solid #e94560; border-top: none; backdrop-filter: blur(4px);">
+
+                <!-- Bouton "mourir" : appelle /api/game/gameover directement -->
+                <button id="btn-temp-die"
+                    style="background: #1e0505; border: 1px solid #cc2222; color: #ff6666; font-family: 'VT323', monospace; font-size: 1.1rem; padding: 6px 12px; cursor: pointer;">
+                    💀 Jumpscare
+                </button>
+
+                <hr style="border-color: #333; margin: 2px 0;">
+
+                <!-- Sélecteur de l'animatronique à contrôler -->
+                <select id="dev-animatronic-select"
+                    style="background: #05101e; border: 1px solid #2255bb; color: #6699ff; font-family: 'VT323', monospace; font-size: 1.1rem; padding: 4px; cursor: pointer;">
+                    <option value="Bluebear">Bluebear</option>
+                    <option value="Redbear">Redbear</option>
+                    <option value="Burncap">Burncap</option>
+                    <option value="GoldenFabron">Golden Fabron</option>
+                    <option value="Oneeyed">Oneeyed</option>
+                </select>
+
+                <!-- Boutons avancer / reculer d'une étape sur le parcours -->
+                <div style="display: flex; gap: 4px;">
+                    <button id="btn-dev-backward"
+                        style="flex: 1; background: #05101e; border: 1px solid #2255bb; color: #6699ff; font-family: 'VT323', monospace; font-size: 1.1rem; padding: 6px 0; cursor: pointer;">
+                        ◀ Reculer
+                    </button>
+                    <button id="btn-dev-forward"
+                        style="flex: 1; background: #05101e; border: 1px solid #2255bb; color: #6699ff; font-family: 'VT323', monospace; font-size: 1.1rem; padding: 6px 0; cursor: pointer;">
+                        Avancer ▶
+                    </button>
+                </div>
+
+                <!-- Forcer un jumpscare immédiat pour l'animatronique sélectionné -->
+                <button id="btn-dev-jumpscare"
+                    style="background: #3a0000; border: 1px solid #ff2222; color: #ff9999; font-family: 'VT323', monospace; font-size: 1.1rem; padding: 6px 0; cursor: pointer; margin-top: 4px;">
+                    😱 Forcer Attaque
+                </button>
+
+            </div>
+        </div>
+        <!-- FIN PANNEAU DEV -->
+
+        <!-- Image principale du bureau. Sa src est mise à jour dynamiquement
+             par updateOfficeView() selon l'état des portes et des animatroniques. -->
+        <img id="main-view-img" src="img/office/desk/desk_open.png" alt="Bureau" class="office-bg">
+
+        <!-- Zones cliquables invisibles superposées sur l'image du bureau.
+             Leurs positions (left/top/width/height) sont définies dans style.css.
+             #window-zone est masqué par défaut et affiché uniquement en vue fenêtre. -->
+        <div id="door-left-zone"  class="clickable-zone"></div>   <!-- Porte gauche  (Redbear) -->
+        <div id="door-right-zone" class="clickable-zone"></div>   <!-- Porte droite  (Bluebear / Oneeyed) -->
+        <div id="window-zone"     class="clickable-zone hidden"></div> <!-- Fenêtre (Burncap) -->
+
+        <!-- Bouton Phone Guy : affiché uniquement nuits 1, 2, 3.
+             États : .ringing (sonnerie verte), .active-call (en ligne rouge), .hidden (inactif). -->
+        <button id="btn-phone" class="hidden">
+            📞 Décrocher
+        </button>
+
+        <!-- HUD heure et numéro de nuit (coin haut droit) -->
+        <div class="hud-top-right">
+            <div class="hud-time"><span id="in-game-hour">12</span> AM</div>
+            <div class="hud-night">Night <span id="in-game-night">1</span></div>
+        </div>
+
+        <!-- Boutons de contrôle du bureau (bas centre).
+             Masqués quand les caméras sont ouvertes ou pendant le blackout. -->
+        <div class="bottom-controls" id="office-controls">
+            <button id="btn-window" class="control-btn btn-white">Fenêtre</button>
+            <button id="btn-camera" class="control-btn btn-red">Caméras</button>
+        </div>
+
+    </main>
+    <!-- FIN ÉCRAN DE JEU -->
+
+
+    <!-- =====================================================
+         SYSTÈME DE CAMÉRAS
+         Écran superposé (z-index: 45) affiché à la place du bureau.
+         Contient le flux vidéo, la transition VHS, le bouton de la
+         porte serveur et la minimap interactive de l'IUT.
+    ====================================================== -->
+    <main id="camera-system" class="hidden">
+
+        <!-- Flux de la caméra active. Sa src est mise à jour par updateCameraFeed(). -->
+        <img id="cam-feed-img" src="" alt="Camera Feed" class="office-bg">
+
+        <!-- Overlay de transition style VHS affiché 150ms lors du changement de caméra -->
+        <div id="cam-transition" class="hidden"></div>
+
+        <!-- Bouton "Ouvrir la Porte" : visible uniquement sur la caméra int_01
+             (salle des serveurs). Grisé (.disabled) si la porte est déjà ouverte
+             ou si Golden Fabron est actif. -->
+        <button id="btn-open-server" class="control-btn btn-white hidden">Ouvrir Porte</button>
+
+        <!-- Minimap interactive (Plan de l'IUT).
+             Chaque .room-box et .room-divider est positionné en absolu
+             via des styles inline pour coller au plan réel du bâtiment.
+             Les .stair-h et .stair-v représentent les escaliers (motif hachuré).
+             Les .cam-btn sont cliquables et appellent updateCameraFeed(). -->
+        <div id="minimap">
+            <h3>PLAN DE L'IUT</h3>
+            <div class="map-grid">
+
+                <!-- Bâtiments principaux -->
+                <div class="room-box"   style="left: 15%; top: 27%; width: 15%; height: 30%;"></div>
+                <div class="room-label" style="left: 16%; top: 30%; text-align: center; width: 13%;">
+                    Bureau<br><span style="color:red; font-weight:bold;">YOU</span>
+                </div>
+                <div class="room-box"    style="left: 30%; top: 12%; width: 45%; height: 60%;"></div>
+                <div class="room-divider" style="left: 45%; top: 12%; height: 60%;"></div>
+                <div class="room-divider" style="left: 60%; top: 12%; height: 60%;"></div>
+                <div class="room-label" style="left: 31%; top: 14%;">3ème Étage</div>
+                <div class="room-label" style="left: 46%; top: 14%;">2ème Étage</div>
+                <div class="room-label" style="left: 61%; top: 14%;">1ère Étage</div>
+                <div class="room-box"   style="left: 80%; top: 12%; width: 16%; height: 40%;"></div>
+                <div class="room-label" style="left: 81%; top: 14%; font-size: 1rem; width: 14%; word-wrap: break-word;">Rez-de-chaussée</div>
+
+                <!-- Bâtiment CROUS (spawn des animatroniques) -->
+                <div class="room-box"   style="left: 30%; top: 86%; width: 24%; height: 12%;"></div>
+                <div class="room-label" style="left: 30%; top: 89%; width: 24%; text-align: center;">CROUS</div>
+
+                <!-- Escaliers (motif hachuré horizontal ou vertical) -->
+                <div class="stair-h" style="left: 32%; top: 6%;  width: 12%; height: 6%;"></div>  <!-- Escalier nord bâtiment 3 -->
+                <div class="stair-h" style="left: 32%; top: 72%; width: 12%; height: 6%;"></div>  <!-- Escalier sud bâtiment 3 -->
+                <div class="stair-h" style="left: 47%; top: 72%; width: 12%; height: 6%;"></div>  <!-- Escalier sud bâtiment 2 -->
+                <div class="stair-h" style="left: 75%; top: 32%; width: 5%;  height: 10%;"></div> <!-- Escalier RDC -->
+                <div class="stair-v" style="left: 80%; top: 52%; width: 16%; height: 28%;"></div> <!-- Escalier vertical RDC -->
+                <div class="stair-h" style="left: 58%; top: 88%; width: 15%; height: 6%;"></div>  <!-- Escalier CROUS -->
+
+                <!-- Boutons de caméra positionnés sur la carte (voir #pos-* dans style.css) -->
+                <button class="cam-btn" data-cam="ext_01" id="pos-ext1">EXT 1</button>  <!-- Couloir fenêtre (Burncap) -->
+                <button class="cam-btn" data-cam="int_01" id="pos-int1">INT 1</button>  <!-- Salle des serveurs -->
+                <button class="cam-btn" data-cam="int_02" id="pos-int2">INT 2</button>
+                <button class="cam-btn" data-cam="esc_01" id="pos-esc1">ESC 1</button>
+                <button class="cam-btn" data-cam="int_03" id="pos-int3">INT 3</button>
+                <button class="cam-btn" data-cam="esc_02" id="pos-esc2">ESC 2</button>
+                <button class="cam-btn" data-cam="int_04" id="pos-int4">INT 4</button>  <!-- Boîte à musique Oneeyed -->
+                <button class="cam-btn" data-cam="esc_03" id="pos-esc3">ESC 3</button>
+                <button class="cam-btn" data-cam="int_05" id="pos-int5">INT 5</button>
+                <button class="cam-btn" data-cam="ext_02" id="pos-ext2">EXT 2</button>
+                <button class="cam-btn" data-cam="ext_03" id="pos-ext3">EXT 3</button>  <!-- Spawn principal -->
+
+            </div>
+        </div>
+        <!-- FIN MINIMAP -->
+
+        <!-- Bouton de fermeture des caméras (retour au bureau) -->
+        <div class="bottom-controls" style="z-index: 75;">
+            <button id="btn-close-camera" class="control-btn btn-white" style="border-color: #aaa; color: #aaa;">Fermer Caméras</button>
+        </div>
+
+    </main>
+    <!-- FIN SYSTÈME DE CAMÉRAS -->
+
+
+    <!-- =====================================================
+         ÉCRAN GAME OVER
+         Affiché après un jumpscare ou un blackout fatal.
+         Retour au menu via btn-return-menu-go.
+    ====================================================== -->
+    <main id="game-over-screen" class="hidden fullscreen-overlay">
+        <h1 class="game-over-text">GAME OVER</h1>
+        <button id="btn-return-menu-go" class="menu-btn">Retourner au menu</button>
+    </main>
+
+
+    <!-- =====================================================
+         ÉCRAN DE VICTOIRE (6 AM)
+         Affiché quand state.status === "WON".
+         L'animation CSS du roller (hours-roller) est déclenchée via JS :
+         translateY de 0 → -8rem pour faire défiler "5 → 6".
+    ====================================================== -->
+    <main id="victory-screen" class="hidden fullscreen-overlay">
+        <div class="victory-clock">
+            <div class="time-container">
+                <div class="hours-roller-container">
+                    <!-- Le roller contient "5" et "6". JS translate vers -8rem pour afficher "6". -->
+                    <div class="hours-roller" id="hours-roller">
+                        <div class="hour">5</div>
+                        <div class="hour">6</div>
+                    </div>
+                </div>
+                <div class="am">AM</div>
+            </div>
+        </div>
+    </main>
+
+
+    <!-- =====================================================
+         MODALES (CONNEXION & LEADERBOARD)
+         Positionnées en fixed au-dessus de tout (z-index: 100).
+         Fermées par leur bouton .close-btn respectif.
+    ====================================================== -->
+
+    <!-- Modale d'authentification (connexion / inscription) -->
+    <div id="auth-modal" class="modal hidden">
+        <div class="modal-content auth-content">
+            <button id="btn-close-auth" class="close-btn">X</button>
+            <h2>IDENTIFICATION</h2>
+            <div class="auth-form">
+                <input type="text"     id="auth-username" placeholder="Nom du Gardien" autocomplete="off">
+                <input type="password" id="auth-password" placeholder="Mot de passe">
+                <div class="auth-buttons">
+                    <button id="btn-submit-login"    class="form-btn">Se Connecter</button>
+                    <button id="btn-submit-register" class="form-btn">S'inscrire</button>
+                </div>
+                <p id="auth-message" class="error-msg"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale du classement global -->
+    <div id="leaderboard-modal" class="modal hidden">
+        <div class="modal-content">
+            <button id="btn-close-leaderboard" class="close-btn">X</button>
+            <h2>LEADERBOARD</h2>
+            <table id="score-table">
+                <thead>
+                    <tr><th>Rang</th><th>Joueur</th><th>Score</th></tr>
+                </thead>
+                <tbody id="score-body">
+                    <!-- Rempli dynamiquement par fetchLeaderboard() -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+
+    <!-- =====================================================
+         CONTENEUR DE JUMPSCARE
+         Positionné au-dessus de tout (z-index: 1001).
+         Caché par défaut (display: none).
+         Activé en JS via classList.add('active' | 'redbear-active' | 'golden-active').
+         - .active         : jumpscare standard (Bluebear, Oneeyed, Burncap)
+         - .redbear-active : jumpscare Redbear (zoom réduit)
+         - .golden-active  : Easter egg Golden Fabron (fond noir, tremblement statique)
+    ====================================================== -->
+    <div id="jumpscare-container">
+        <!-- Vidéo de parasite statique (optionnelle, masquée par défaut).
+             Peut être activée pour un effet de glitch supplémentaire. -->
+        <video id="jumpscare-static-video" playsinline muted loop
+            style="position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 1; opacity: 0.5; display: none;">
+            <source src="assets/videos/jumpscare_static.mp4" type="video/mp4">
+        </video>
+        <!-- Image du monstre, opacité 0 par défaut, animée par CSS au déclenchement -->
+        <img id="jumpscare-img" src="" alt="Jumpscare" style="position: relative; z-index: 2;">
+    </div>
+
+
+    <!-- =====================================================
+         OVERLAY DE FONDU (FADE TO BLACK)
+         Positionné au-dessus de tout (z-index: 10000).
+         Utilisé pour masquer la transition entre le jumpscare et
+         l'écran game over. Activé via classList.add('visible').
+    ====================================================== -->
+    <div id="fade-overlay"></div>
+
+
+    <script src="main.js"></script>
+</body>
+</html>
