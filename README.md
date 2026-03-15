@@ -70,6 +70,47 @@ Ce projet est un **fan-game** librement inspiré de la franchise **Five Nights a
 
 ---
 
+## 📋 CONFORMITÉ AU CAHIER DES CHARGES
+
+> 📄 Le cahier des charges complet est disponible ici : [`docs/Mini-projet___Jeu_Vidéo_Web_Client_serveur.pdf`](./docs/Mini-projet___Jeu_Vidéo_Web_Client_serveur.pdf)
+
+### ✅ Fonctionnalités minimales
+
+| Exigence | Statut | Détail |
+|---|:---:|---|
+| API REST — Gestion des joueurs | ✅ | `POST /api/auth/register` · `POST /api/auth/login` |
+| API REST — Création & gestion des parties | ✅ | `POST /api/game/start` · `GET /api/game/state` · `POST /api/game/action` |
+| API REST — Sauvegarde & récupération des scores | ✅ | `GET /api/scores/leaderboard` · `ScoreRepository` JPA |
+| Validation des règles côté serveur | ✅ | Logique IA & collisions dans `GameEngineService` (Server-Authoritative) |
+| Persistance des données (BDD) | ✅ | MySQL en production · H2 in-memory pour les tests |
+| Interface web interactive | ✅ | `index.html` + `main.js` + `style.css` — Vanilla JS |
+| Appels REST (Fetch API) | ✅ | Polling toutes les secondes sur `/api/game/state` |
+| Affichage dynamique (scores, états de jeu) | ✅ | Mise à jour DOM en temps réel, gestion des jumpscares |
+| Gestion des événements utilisateur | ✅ | Clics portes/fenêtre, caméras, interactions bureau |
+| Frontend et backend séparés | ✅ | Dossiers `frontend/` et `backend/` distincts |
+| Échanges au format JSON | ✅ | Tous les endpoints retournent/consomment du JSON |
+| Bonnes pratiques REST (GET/POST/PUT/DELETE) | ✅ | Verbes HTTP respectés sur l'ensemble de l'API |
+
+### 🎁 Bonus réalisés
+
+| Bonus | Statut | Détail |
+|---|:---:|---|
+| Authentification JWT | ✅ | `JwtUtil` + Spring Security Stateless — token Bearer |
+| Classement global (Leaderboard) | ✅ | `ScoreController` · endpoint `/api/scores/leaderboard` |
+| Design graphique amélioré | ✅ | Effets CRT, vignettage, scanlines, animations CSS, jumpscares vidéo |
+| WebSocket temps réel | ❌ | Non implémenté — remplacé par polling REST (1s) |
+| Documentation (Javadoc & README) | ✅ | Code entièrement documenté et README complet |
+
+
+
+### 🗄️ Script de base de données
+
+Le script de création et d'initialisation de la base de données MySQL est disponible ici :
+
+[`backend/sql/init_database.sql`](./backend/sql/init_database.sql)
+
+---
+
 ## ⚙️ ARCHITECTURE TECHNIQUE & TECHNOLOGIES
 
 Ce projet repose sur une architecture **N-Tiers** séparant strictement le client lourd (navigateur) du serveur d'application (API REST).
@@ -177,6 +218,8 @@ cd backend/
 Five-Nights-at-Fabron/
 │
 ├── backend/                          # 🖥️  Serveur Spring Boot
+│   ├── sql/
+│   │   └── init_database.sql         # Script de création de la base de données MySQL
 │   ├── src/
 │   │   ├── main/java/.../
 │   │   │   ├── auth/                 # Inscription, connexion, JWT
@@ -186,6 +229,9 @@ Five-Nights-at-Fabron/
 │   │   │   └── score/                # Leaderboard & ScoreRepository
 │   │   └── test/java/.../            # Tests unitaires & intégration
 │   └── pom.xml                       # Dépendances Maven
+│
+├── docs/
+│   └── Mini-projet___Jeu_Vidéo_Web_Client_serveur.pdf  # 📋 Cahier des charges
 │
 ├── frontend/                         # 🌐  Client Web
 │   ├── assets/                       # Médias : images, sons, vidéos
