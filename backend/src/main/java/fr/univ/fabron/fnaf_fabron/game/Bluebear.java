@@ -1,7 +1,9 @@
 package fr.univ.fabron.fnaf_fabron.game;
 
+/**
+ * Animatronique qui attaque par la porte Droite.
+ */
 public class Bluebear extends Animatronic {
-    // Chemin corrigé : finit par porte_droite
     private static final String[] PATH = { "ext_03", "ext_02", "int_05", "int_03", "esc_01", "porte_droite", "office" };
     private int pathIndex = 0;
     private long timeArrivedAtDoor = 0;
@@ -17,13 +19,12 @@ public class Bluebear extends Animatronic {
     public void update(GameState gameState) {
         if (currentLocation.equals("porte_droite")) {
             long currentTime = System.currentTimeMillis();
-            // VERIFICATION PORTE DROITE
             if (gameState.isRightDoorClosed()) {
                 if (timeDoorClosedStart == 0) timeDoorClosedStart = currentTime;
-                else if (currentTime - timeDoorClosedStart >= 3000) leaveDoor(gameState);
+                else if (currentTime - timeDoorClosedStart >= 3000) leaveDoor(gameState); // Abandonne après 3s face à une porte fermée
             } else {
                 timeDoorClosedStart = 0;
-                if (currentTime - timeArrivedAtDoor >= currentJumpscareDelay) triggerJumpscare(gameState);
+                if (currentTime - timeArrivedAtDoor >= currentJumpscareDelay) triggerJumpscare(gameState); // GAME OVER
             }
         } else {
             super.update(gameState);

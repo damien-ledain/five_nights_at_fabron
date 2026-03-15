@@ -1,16 +1,13 @@
 package fr.univ.fabron.fnaf_fabron.game;
 
 import java.time.LocalDateTime;
-
 import fr.univ.fabron.fnaf_fabron.player.Player;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
+/**
+ * Entité représentant une session de jeu (une tentative de survie) en base de données.
+ * Permet de tracer le temps passé et la réussite ou l'échec du joueur.
+ */
 @Entity
 @Table(name = "game_sessions")
 public class GameSession {
@@ -19,21 +16,26 @@ public class GameSession {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Le joueur effectuant la session. (Relation Many-to-One) */
     @ManyToOne
     @JoinColumn(name = "player_id", nullable = false)
     private Player player;
 
+    /** Le niveau de difficulté (la nuit) de cette session. */
+    @Column(nullable = false)
     private int nightLevel;
     
-    // CORRECTION : Renommé de "isActive" en "active" pour la compatibilité Spring Data JPA
+    /** Indique si la session est actuellement en cours. */
+    @Column(nullable = false)
     private boolean active;
     
-    // Heure réelle à laquelle la partie a commencé sur le serveur
+    /** L'heure réelle de début de la session sur le serveur. */
+    @Column(nullable = false)
     private LocalDateTime startTime;
 
     public GameSession() {}
 
-    // Getters et Setters
+    // --- Getters et Setters ---
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Player getPlayer() { return player; }

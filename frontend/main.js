@@ -645,58 +645,60 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Calcule et applique la variation de température à chaque tick (1/seconde).
-     * La température monte si des éléments sont fermés ou si les caméras sont actives,
-     * et descend naturellement de 1°/tick (refroidissement passif).
-     * Si la température atteint 100, déclenche triggerBlackout().
-     *
-     * Sources de chaleur :
-     *  - Fenêtre fermée       : +2.0 / tick
-     *  - Porte serveur fermée : +1.5 / tick  (récompense l'action de ré-ouvrir la porte)
-     *  - Porte gauche fermée  : +0.75 / tick
-     *  - Porte droite fermée  : +0.75 / tick
-     *  - Caméras actives      : +1.5 + (nuit * 0.3) / tick  (punit l'abus des caméras)
-     *
-     * Refroidissement passif : -1.0 / tick
-     * Multiplicateur de difficulté : +15% par nuit supplémentaire (plafonné à la nuit 10).
-     */
-    function calculateTemperature() {
-        if (isBlackout) return;
+ * Calcule et applique la variation de température à chaque tick (1/seconde).
+ * NOUVELLE LOGIQUE :
+ * - Refroidissement passif : -1.0 / tick
+ * - Caméras actives seules : La température STAGNE (heatDelta = 0).
+ * - Portes/Fenêtres fermées : La température augmente normalement.
+ * - Gradation : La difficulté augmente doucement de 8% par nuit, uniquement à partir de la nuit 4.
+ */
+function calculateTemperature() {
+    if (isBlackout) return;
 
-        // Refroidissement passif de base
-        let heatDelta = -1.0;
+    let heatDelta = -1.0; // Refroidissement passif de base
+    let activeHeating = 0; // Chaleur générée par les actions du joueur
 
-        // Chaleur générée par les éléments fermés
-        if (isWindowClosed)      heatDelta += 2.0;  // Fenêtre fermée chauffe beaucoup (peu d'aération)
-        if (!isServerDoorOpen)   heatDelta += 1.5;  // Porte serveur fermée = serveurs surchauffent
-        if (isLeftDoorClosed)    heatDelta += 0.75; // Porte gauche fermée
-        if (isRightDoorClosed)   heatDelta += 0.75; // Porte droite fermée
+    // On calcule la chaleur générée par les éléments fermés
+    if (isWindowClosed)      activeHeating += 2.0;
+    if (!isServerDoorOpen)   activeHeating += 1.5;
+    if (isLeftDoorClosed)    activeHeating += 0.75;
+    if (isRightDoorClosed)   activeHeating += 0.75;
 
-        // La difficulté est plafonnée à la nuit 10 pour éviter une difficulté infinie
-        let cappedNight = Math.min(activeNightLevel, 10);
+    let cappedNight = Math.min(activeNightLevel, 10);
 
-        if (!cameraSystem.classList.contains('hidden')) {
-            // Les caméras génèrent une chaleur importante pour décourager leur utilisation prolongée.
-            // Formule : base 1.5 + 0.3 par nuit = max +4.5 à la nuit 10
-            heatDelta += 1.5 + (cappedNight * 0.3);
+    // Gestion de la caméra
+    if (!cameraSystem.classList.contains('hidden')) {
+        if (activeHeating === 0) {
+            // Si on regarde les caméras ET que tout est ouvert -> STAGNATION
+            heatDelta = 0;
+        } else {
+            // Si on regarde les caméras mais que des portes sont fermées -> Chauffe + Pénalité mineure
+            heatDelta += activeHeating + 0.5; 
         }
-
-        // Appliquer le multiplicateur de difficulté uniquement si la chaleur nette est positive
-        if (heatDelta > 0) {
-            let difficultyMultiplier = 1 + ((cappedNight - 1) * 0.15); // +15% de chaleur par nuit
-            heatDelta *= difficultyMultiplier;
-        }
-
-        currentTemperature += heatDelta;
-
-        // Clamping entre 0 et 100
-        if (currentTemperature < 0)    currentTemperature = 0;
-        if (currentTemperature >= 100) { currentTemperature = 100; triggerBlackout(); }
-
-        // Mise à jour de l'UI
-        tempBarFill.style.width       = currentTemperature + '%';
-        tempPercentage.textContent    = Math.floor(currentTemperature) + '%';
+    } else {
+        // Bureau classique
+        heatDelta += activeHeating;
     }
+
+    // Si la pièce se réchauffe (heatDelta > 0), on applique le multiplicateur de difficulté
+    if (heatDelta > 0) {
+        // La gradation est nulle pour les nuits 1 à 3. 
+        // À partir de la nuit 4, on augmente de 8% par nuit supplémentaire (au lieu de 15% dès la nuit 1).
+        let extraNights = Math.max(0, cappedNight - 3);
+        let difficultyMultiplier = 1 + (extraNights * 0.08);
+        heatDelta *= difficultyMultiplier;
+    }
+
+    currentTemperature += heatDelta;
+
+    // Clamping entre 0 et 100
+    if (currentTemperature < 0)    currentTemperature = 0;
+    if (currentTemperature >= 100) { currentTemperature = 100; triggerBlackout(); }
+
+    // Mise à jour de l'UI
+    tempBarFill.style.width       = currentTemperature + '%';
+    tempPercentage.textContent    = Math.floor(currentTemperature) + '%';
+}
 
     // =========================================================
     // --- LOGIQUE MENUS & AUTHENTIFICATION ---
@@ -875,9 +877,9 @@ document.addEventListener('DOMContentLoaded', () => {
         serverDoorInterval = setInterval(() => {
             let cappedNight = Math.min(activeNightLevel, 10);
 
-            // Chance de fermeture : 15% de base, +4% par nuit, plafonnée à 60%
-            // Vérification toutes les 8s pour laisser le temps au joueur de réagir
-            let closeChance = Math.min(0.15 + ((cappedNight - 1) * 0.04), 0.60);
+            // Chance de fermeture adoucie : 10% de base, +3% par nuit SEULEMENT après la nuit 3. Plafond à 45%.
+let extraNights = Math.max(0, cappedNight - 3);
+let closeChance = Math.min(0.10 + (extraNights * 0.03), 0.45);
 
             if (isServerDoorOpen && !isBlackout && Math.random() < closeChance) {
                 isServerDoorOpen = false;
