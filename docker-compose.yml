@@ -1,0 +1,49 @@
+services:
+
+  db:
+    image: mariadb:11
+    container_name: fnaf_db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: root_secret
+      MARIADB_DATABASE: fnaf_fabron
+      MARIADB_USER: fnaf_user
+      MARIADB_PASSWORD: fnaf_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - fnaf_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: fnaf_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/fnaf_fabron?serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: fnaf_user
+      SPRING_DATASOURCE_PASSWORD: fnaf_password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    ports:
+      - "8080:8080"
+
+  frontend:
+    image: nginx:alpine
+    container_name: fnaf_frontend
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  fnaf_db_data:
